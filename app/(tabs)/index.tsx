@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { BarCodeScanner } from "expo-barcode-scanner";
+import { BarCodeScanner } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
 import React, { useEffect, useState } from "react";
 import {
@@ -82,6 +82,56 @@ async function uploadPhotoToSupabase(uri: string, coupleId: string) {
   }
 }
 
+async function guardarNuevoPlan(plan, coupleId) {
+  const { data, error } = await supabase
+    .from("app_state")
+    .select("contenido")
+    .eq("id", coupleId)
+    .single();
+
+  if (error || !data) return;
+
+  const contenidoActual = data.contenido || { planes: [], planesPorDia: {} };
+
+  const nuevosPlanes = [...contenidoActual.planes, plan];
+
+  const nuevoContenido = {
+    ...contenidoActual,
+    planes: nuevosPlanes,
+  };
+
+  await supabase
+    .from("app_state")
+    .update({ contenido: nuevoContenido })
+    .eq("id", coupleId);
+}
+
+async function guardarPlanesPorDia(fecha, datos, coupleId) {
+  const { data, error } = await supabase
+    .from("app_state")
+    .select("contenido")
+    .eq("id", coupleId)
+    .single();
+
+  if (error || !data) return;
+
+  const contenidoActual = data.contenido || { planes: [], planesPorDia: {} };
+
+  const nuevoContenido = {
+    ...contenidoActual,
+    planesPorDia: {
+      ...contenidoActual.planesPorDia,
+      [fecha]: datos,
+    },
+  };
+
+  await supabase
+    .from("app_state")
+    .update({ contenido: nuevoContenido })
+    .eq("id", coupleId);
+}
+
+
 export default function Index() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"vinculo" | "inicio" | "ruleta" | "nuevo" | "calendario" | "review" | "galeria">("vinculo");
@@ -151,14 +201,6 @@ export default function Index() {
     cargar();
   }, [coupleId]);
 
-  // ─── GUARDADO AUTOMÁTICO ───
-  useEffect(() => {
-    if (!coupleId) return;
-    supabase.from("app_state").upsert({
-      id: coupleId,
-      contenido: { planes, planesPorDia },
-    });
-  }, [planes, planesPorDia, coupleId]);
 
   // ─── SUSCRIPCIÓN A CAMBIOS EN SUPABASE (sincronización) ───
   useEffect(() => {
@@ -657,28 +699,32 @@ export default function Index() {
 
           {/* GUARDAR */}
           <Boton
-            text="Guardar plan ❤️"
-            color={colors.primary}
-            onPress={() => {
-              if (!titulo.trim()) return;
+  text="Guardar plan ❤️"
+  color={colors.primary}
+  onPress={() => {
+    if (!titulo.trim()) return;
 
-              setPlanes([
-                ...planes,
-                {
-                  id: Date.now().toString(),
-                  titulo: titulo.trim(),
-                  precio: precio.trim() || null,
-                  duracion: duracion.trim() || null,
-                  categoria: categoria || null,
-                },
-              ]);
+    const nuevoId = Date.now().toString();
 
-              setTitulo("");
-              setPrecio("");
-              setDuracion("");
-              setCategoria("");
-            }}
-          />
+    const nuevoPlan = {
+      id: nuevoId,
+      titulo: titulo.trim(),
+      precio: precio.trim() || null,
+      duracion: duracion.trim() || null,
+      categoria: categoria || null,
+    };
+
+    setPlanes([...planes, nuevoPlan]);
+
+    guardarNuevoPlan(nuevoPlan, coupleId);
+
+    setTitulo("");
+    setPrecio("");
+    setDuracion("");
+    setCategoria("");
+  }}
+/>
+
 
           {/* LISTA DE PLANES EXISTENTES */}
           <Text
@@ -774,288 +820,301 @@ export default function Index() {
       </ImageBackground>
     );
   }
+// ──────────────────────
+// 📆 CALENDARIO
+// ──────────────────────
+if (view === "calendario") {
+  const markedDates: any = {};
 
-  // ──────────────────────
-  // 📆 CALENDARIO
-  // ──────────────────────
-  if (view === "calendario") {
-    const markedDates: any = {};
+  Object.keys(planesPorDia).forEach((dia) => {
+    markedDates[dia] = {
+      marked: true,
+      dotColor: colors.primary,
+    };
+  });
 
-    Object.keys(planesPorDia).forEach((dia) => {
-      markedDates[dia] = {
-        marked: true,
-        dotColor: colors.primary,
-      };
+  if (planActual) {
+    markedDates[new Date().toISOString().split("T")[0]] = {
+      selected: true,
+      selectedColor: colors.secondary,
+    };
+  }
+
+  return (
+    <ImageBackground
+      source={require("../../assets/hearts-bg.png")}
+      style={{ flex: 1, padding: 20 }}
+      imageStyle={{ opacity: 0.12 }}
+    >
+      <Text
+        style={{
+          color: colors.primary,
+          fontSize: 28,
+          fontWeight: "800",
+          padding: 20,
+        }}
+      >
+        📆 Elige un día
+      </Text>
+
+      <Calendar
+        onDayPress={(day) => {
+          const fecha = day.dateString;
+
+          // ─── Si estamos asignando un plan desde la ruleta ───
+          if (planActual) {
+            const nuevosPlanesDelDia = [
+              ...(planesPorDia[fecha] || []),
+              {
+                planId: planActual.id,
+                fotos: [],
+                opinion: "",
+                puntaje: 0,
+                precio: planActual.precio || null,
+                duracion: planActual.duracion || null,
+              },
+            ];
+
+            // 1. Guardar en estado local
+            setPlanesPorDia({
+              ...planesPorDia,
+              [fecha]: nuevosPlanesDelDia,
+            });
+
+            // 2. Guardar en Supabase
+            guardarPlanesPorDia(fecha, nuevosPlanesDelDia, coupleId);
+
+            // 3. Resetear estado
+            setPlanActual(null);
+            setIntentosRuleta(0);
+            setView("inicio");
+            return;
+          }
+
+          // ─── Si ya hay planes ese día, ir a la review ───
+          if ((planesPorDia[fecha] || []).length > 0) {
+            setFechaSeleccionada(fecha);
+            setView("review");
+          }
+        }}
+        markedDates={markedDates}
+        theme={{
+          backgroundColor: colors.bg,
+          calendarBackground: colors.bg,
+          textSectionTitleColor: colors.muted,
+          dayTextColor: colors.text,
+          monthTextColor: colors.text,
+          arrowColor: colors.primary,
+          todayTextColor: colors.secondary,
+          dotColor: colors.primary,
+          selectedDayBackgroundColor: colors.primary,
+          selectedDayTextColor: "#fff",
+        }}
+      />
+
+      <View style={{ padding: 20 }}>
+        <Boton
+          text="⬅ Volver"
+          onPress={() => {
+            setPlanActual(null);
+            setIntentosRuleta(0);
+            setView("inicio");
+          }}
+          color={colors.warning}
+        />
+      </View>
+    </ImageBackground>
+  );
+}
+
+// ──────────────────────
+// 📝 REVIEW
+// ──────────────────────
+if (view === "review" && fechaSeleccionada) {
+  const lista = planesPorDia[fechaSeleccionada] || [];
+
+  const actualizarPlan = (index: number, cambios: any) => {
+    const nuevaLista = [...lista];
+    nuevaLista[index] = { ...nuevaLista[index], ...cambios };
+
+    // 1. Guardar en estado local
+    setPlanesPorDia({
+      ...planesPorDia,
+      [fechaSeleccionada]: nuevaLista,
     });
 
-    if (planActual) {
-      markedDates[new Date().toISOString().split("T")[0]] = {
-        selected: true,
-        selectedColor: colors.secondary,
-      };
-    }
+    // 2. Guardar en Supabase
+    guardarPlanesPorDia(fechaSeleccionada, nuevaLista, coupleId);
+  };
 
-    return (
-      <ImageBackground
-        source={require("../../assets/hearts-bg.png")}
-        style={{ flex: 1, padding: 20 }}
-        imageStyle={{ opacity: 0.12 }}
-      >
+  return (
+    <ImageBackground
+      source={require("../../assets/hearts-bg.png")}
+      style={{ flex: 1, padding: 20 }}
+      imageStyle={{ opacity: 0.12 }}
+    >
+      <ScrollView>
         <Text
           style={{
             color: colors.primary,
             fontSize: 28,
             fontWeight: "800",
-            padding: 20,
+            marginBottom: 20,
           }}
         >
-          📆 Elige un día
+          Planes del día {fechaSeleccionada}
         </Text>
 
-        <Calendar
-          onDayPress={(day) => {
-            const fecha = day.dateString;
+        {lista.map((p: any, i: number) => {
+          const planInfo = planes.find((pl) => pl.id === p.planId);
 
-            if (planActual) {
-              setPlanesPorDia({
-                ...planesPorDia,
-                [fecha]: [
-                  ...(planesPorDia[fecha] || []),
-                  {
-                    planId: planActual.id,
-                    fotos: [],
-                    opinion: "",
-                    puntaje: 0,
-                    precio: planActual.precio || null,
-                    duracion: planActual.duracion || null,
-                  },
-                ],
-              });
-
-              setPlanActual(null);
-              setIntentosRuleta(0);
-              setView("inicio");
-              return;
-            }
-
-            if ((planesPorDia[fecha] || []).length > 0) {
-              setFechaSeleccionada(fecha);
-              setView("review");
-            }
-          }}
-          markedDates={markedDates}
-          theme={{
-            backgroundColor: colors.bg,
-            calendarBackground: colors.bg,
-            textSectionTitleColor: colors.muted,
-            dayTextColor: colors.text,
-            monthTextColor: colors.text,
-            arrowColor: colors.primary,
-            todayTextColor: colors.secondary,
-            dotColor: colors.primary,
-            selectedDayBackgroundColor: colors.primary,
-            selectedDayTextColor: "#fff",
-          }}
-        />
-
-        <View style={{ padding: 20 }}>
-          <Boton
-            text="⬅ Volver"
-            onPress={() => {
-              setPlanActual(null);
-              setIntentosRuleta(0);
-              setView("inicio");
-            }}
-            color={colors.warning}
-          />
-        </View>
-      </ImageBackground>
-    );
-  }
-
-  // ──────────────────────
-  // 📝 REVIEW
-  // ──────────────────────
-  if (view === "review" && fechaSeleccionada) {
-    const lista = planesPorDia[fechaSeleccionada] || [];
-
-    const actualizarPlan = (index: number, cambios: any) => {
-      const nuevaLista = [...lista];
-      nuevaLista[index] = { ...nuevaLista[index], ...cambios };
-      setPlanesPorDia({
-        ...planesPorDia,
-        [fechaSeleccionada]: nuevaLista,
-      });
-    };
-
-    return (
-      <ImageBackground
-        source={require("../../assets/hearts-bg.png")}
-        style={{ flex: 1, padding: 20 }}
-        imageStyle={{ opacity: 0.12 }}
-      >
-        <ScrollView>
-          <Text
-            style={{
-              color: colors.primary,
-              fontSize: 28,
-              fontWeight: "800",
-              marginBottom: 20,
-            }}
-          >
-            Planes del día {fechaSeleccionada}
-          </Text>
-
-          {lista.map((p: any, i: number) => {
-            const planInfo = planes.find((pl) => pl.id === p.planId);
-
-            return (
-              <View
-                key={i}
+          return (
+            <View
+              key={i}
+              style={{
+                backgroundColor: colors.card,
+                borderRadius: 20,
+                padding: 20,
+                marginBottom: 20,
+                shadowColor: "#000",
+                shadowOpacity: 0.05,
+                shadowRadius: 10,
+                elevation: 2,
+              }}
+            >
+              <Text
                 style={{
-                  backgroundColor: colors.card,
-                  borderRadius: 20,
-                  padding: 20,
-                  marginBottom: 20,
-                  shadowColor: "#000",
-                  shadowOpacity: 0.05,
-                  shadowRadius: 10,
-                  elevation: 2,
+                  color: colors.primary,
+                  fontSize: 22,
+                  fontWeight: "800",
+                  marginBottom: 10,
+                }}
+              >
+                {planInfo?.titulo}
+              </Text>
+
+              {/* Opinión */}
+              <TextInput
+                placeholder="Opinión"
+                placeholderTextColor={colors.muted}
+                value={p.opinion || ""}
+                onChangeText={(text) => actualizarPlan(i, { opinion: text })}
+                style={{
+                  backgroundColor: "#f3edf7",
+                  color: colors.text,
+                  padding: 12,
+                  borderRadius: 16,
+                  marginBottom: 12,
+                }}
+              />
+
+              {/* EDITAR PRECIO */}
+              <TextInput
+                placeholder="Precio (€)"
+                placeholderTextColor={colors.muted}
+                value={p.precio || ""}
+                onChangeText={(text) => actualizarPlan(i, { precio: text })}
+                keyboardType="numeric"
+                style={{
+                  backgroundColor: "#f3edf7",
+                  color: colors.text,
+                  padding: 12,
+                  borderRadius: 16,
+                  marginBottom: 12,
+                }}
+              />
+
+              {/* EDITAR DURACIÓN */}
+              <TextInput
+                placeholder="Duración (min)"
+                placeholderTextColor={colors.muted}
+                value={p.duracion || ""}
+                onChangeText={(text) => actualizarPlan(i, { duracion: text })}
+                keyboardType="numeric"
+                style={{
+                  backgroundColor: "#f3edf7",
+                  color: colors.text,
+                  padding: 12,
+                  borderRadius: 16,
+                  marginBottom: 12,
+                }}
+              />
+
+              {/* Estrellas */}
+              <View style={{ flexDirection: "row", marginBottom: 12 }}>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <TouchableOpacity
+                    key={n}
+                    onPress={() => actualizarPlan(i, { puntaje: n })}
+                  >
+                    <Text style={{ fontSize: 28, marginRight: 6 }}>
+                      {p.puntaje >= n ? "⭐" : "☆"}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Fotos */}
+              <TouchableOpacity
+                onPress={async () => {
+                  const img = await ImagePicker.launchImageLibraryAsync({
+                    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                    quality: 0.8,
+                  });
+
+                  if (!img.canceled) {
+                    const url = await uploadPhotoToSupabase(
+                      img.assets[0].uri,
+                      coupleId || "default"
+                    );
+                    if (url) {
+                      actualizarPlan(i, {
+                        fotos: [...(p.fotos || []), url],
+                      });
+                    } else {
+                      alert("Error subiendo la foto 😭");
+                    }
+                  }
                 }}
               >
                 <Text
                   style={{
                     color: colors.primary,
-                    fontSize: 22,
-                    fontWeight: "800",
-                    marginBottom: 10,
+                    marginBottom: 12,
+                    fontWeight: "600",
                   }}
                 >
-                  {planInfo?.titulo}
+                  📸 Añadir foto
                 </Text>
+              </TouchableOpacity>
 
-                {/* Opinión */}
-                <TextInput
-                  placeholder="Opinión"
-                  placeholderTextColor={colors.muted}
-                  value={p.opinion || ""}
-                  onChangeText={(text) => actualizarPlan(i, { opinion: text })}
-                  style={{
-                    backgroundColor: "#f3edf7",
-                    color: colors.text,
-                    padding: 12,
-                    borderRadius: 16,
-                    marginBottom: 12,
-                  }}
-                />
-
-                {/* EDITAR PRECIO */}
-                <TextInput
-                  placeholder="Precio (€)"
-                  placeholderTextColor={colors.muted}
-                  value={p.precio || ""}
-                  onChangeText={(text) => actualizarPlan(i, { precio: text })}
-                  keyboardType="numeric"
-                  style={{
-                    backgroundColor: "#f3edf7",
-                    color: colors.text,
-                    padding: 12,
-                    borderRadius: 16,
-                    marginBottom: 12,
-                  }}
-                />
-
-                {/* EDITAR DURACIÓN */}
-                <TextInput
-                  placeholder="Duración (min)"
-                  placeholderTextColor={colors.muted}
-                  value={p.duracion || ""}
-                  onChangeText={(text) => actualizarPlan(i, { duracion: text })}
-                  keyboardType="numeric"
-                  style={{
-                    backgroundColor: "#f3edf7",
-                    color: colors.text,
-                    padding: 12,
-                    borderRadius: 16,
-                    marginBottom: 12,
-                  }}
-                />
-
-                {/* Estrellas */}
-                <View style={{ flexDirection: "row", marginBottom: 12 }}>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <TouchableOpacity
-                      key={n}
-                      onPress={() => actualizarPlan(i, { puntaje: n })}
-                    >
-                      <Text style={{ fontSize: 28, marginRight: 6 }}>
-                        {p.puntaje >= n ? "⭐" : "☆"}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {/* Fotos */}
-                <TouchableOpacity
-                  onPress={async () => {
-                    const img = await ImagePicker.launchImageLibraryAsync({
-                      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                      quality: 0.8,
-                    });
-
-                    if (!img.canceled) {
-                      const url = await uploadPhotoToSupabase(
-                        img.assets[0].uri,
-                        coupleId || "default"
-                      );
-                      if (url) {
-                        actualizarPlan(i, {
-                          fotos: [...(p.fotos || []), url],
-                        });
-                      } else {
-                        alert("Error subiendo la foto 😭");
-                      }
-                    }
-                  }}
-                >
-                  <Text
+              <ScrollView horizontal>
+                {p.fotos?.map((f: string, j: number) => (
+                  <Image
+                    key={j}
+                    source={{ uri: f }}
                     style={{
-                      color: colors.primary,
-                      marginBottom: 12,
-                      fontWeight: "600",
+                      width: 100,
+                      height: 100,
+                      borderRadius: 10,
+                      marginRight: 10,
                     }}
-                  >
-                    📸 Añadir foto
-                  </Text>
-                </TouchableOpacity>
+                  />
+                ))}
+              </ScrollView>
+            </View>
+          );
+        })}
 
-                <ScrollView horizontal>
-                  {p.fotos?.map((f: string, j: number) => (
-                    <Image
-                      key={j}
-                      source={{ uri: f }}
-                      style={{
-                        width: 100,
-                        height: 100,
-                        marginRight: 10,
-                        borderRadius: 12,
-                      }}
-                    />
-                  ))}
-                </ScrollView>
-              </View>
-            );
-          })}
-
-          <Boton
-            text="⬅ Volver"
-            onPress={() => setView("inicio")}
-            color={colors.warning}
-          />
-        </ScrollView>
-      </ImageBackground>
-    );
-  }
+        <Boton
+          text="⬅ Volver"
+          color={colors.warning}
+          onPress={() => setView("calendario")}
+        />
+      </ScrollView>
+    </ImageBackground>
+  );
+}
 
   // ──────────────────────
   // 🖼 GALERÍA
