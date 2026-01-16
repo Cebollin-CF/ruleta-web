@@ -1,0 +1,11 @@
+
+
+
+GENERAR BUILD WEB
+npx expo export --platform web
+
+
+PARA SUBIR A GIT HUB
+git add .
+git commit -m "update"
+git push

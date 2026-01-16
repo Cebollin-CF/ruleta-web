@@ -107,19 +107,24 @@ export default function Index() {
 
   // 🔄 CARGAR ID DE PAREJA
   useEffect(() => {
-    const init = async () => {
-      try {
-        const savedCoupleId = await AsyncStorage.getItem("couple_id");
-        if (savedCoupleId) {
-          setCoupleId(savedCoupleId);
-          setView("inicio");
-        }
-      } finally {
-        setLoading(false);
+  const init = async () => {
+    try {
+      const savedCoupleId = await AsyncStorage.getItem("couple_id");
+
+      if (savedCoupleId) {
+        setCoupleId(savedCoupleId);
+        setView("inicio");
+      } else {
+        setView("vinculo");
       }
-    };
-    init();
-  }, []);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  init();
+}, []);
+
 
   // 🔄 CARGAR ESTADO DESDE SUPABASE
   useEffect(() => {
@@ -227,36 +232,54 @@ export default function Index() {
   // 🧭 NAVEGACIÓN ENTRE PANTALLAS
 
   // 👉 VÍNCULO
-  if (view === "vinculo") {
-    return (
-      <VinculoScreen
-        setView={setView}
-        coupleId={coupleId}
-        scannerActive={scannerActive}
-        hasCameraPermission={hasCameraPermission}
-        codigoManual={codigoManual}
-        setCodigoManual={setCodigoManual}
-        pedirPermisoCamara={async () => {
-          const { status } = await BarCodeScanner.requestPermissionsAsync();
-          setHasCameraPermission(status === "granted");
-          if (status === "granted") setScannerActive(true);
-        }}
-        crearPareja={async () => {
-          const id = Math.random().toString(36).substring(2, 10);
-          setCoupleId(id);
-          await AsyncStorage.setItem("couple_id", id);
-          setView("inicio");
-        }}
-        manejarScan={async ({ data }) => {
-          setScannerActive(false);
-          if (!data) return;
-          setCoupleId(data);
-          await AsyncStorage.setItem("couple_id", data);
-          setView("inicio");
-        }}
-      />
-    );
-  }
+if (view === "vinculo") {
+  return (
+    <VinculoScreen
+      setView={setView}
+      coupleId={coupleId}
+      setCoupleId={setCoupleId}
+      scannerActive={scannerActive}
+      hasCameraPermission={hasCameraPermission}
+      codigoManual={codigoManual}
+      setCodigoManual={setCodigoManual}
+      pedirPermisoCamara={async () => {
+        const { status } = await BarCodeScanner.requestPermissionsAsync();
+        setHasCameraPermission(status === "granted");
+        if (status === "granted") setScannerActive(true);
+      }}
+      crearPareja={async () => {
+        const id = Math.random().toString(36).substring(2, 10);
+
+        // Guardar en estado global
+        setCoupleId(id);
+
+        // Guardar en AsyncStorage
+        await AsyncStorage.setItem("couple_id", id);
+
+        // Crear registro en Supabase si no existe
+        await supabase.from("app_state").upsert({
+          id,
+          contenido: { planes: [], planesPorDia: {}, notas: [] },
+        });
+
+        setView("inicio");
+      }}
+      manejarScan={async ({ data }) => {
+        if (!data) return;
+
+        // Guardar en estado global
+        setCoupleId(data);
+
+        // Guardar en AsyncStorage
+        await AsyncStorage.setItem("couple_id", data);
+
+        setScannerActive(false);
+        setView("inicio");
+      }}
+    />
+  );
+}
+
 
   // 👉 INICIO
   if (view === "inicio") {

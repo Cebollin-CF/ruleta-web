@@ -1,12 +1,14 @@
 import React from "react";
-import { Text, View, TextInput } from "react-native";
+import { Text, View, TextInput, TouchableOpacity } from "react-native";
 import Container from "../components/Container";
 import Boton from "../components/Boton";
 import colors from "../utils/colors";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function VinculoScreen({
   setView,
   coupleId,
+  setCoupleId,
   scannerActive,
   hasCameraPermission,
   codigoManual,
@@ -17,6 +19,7 @@ export default function VinculoScreen({
 }) {
   return (
     <Container>
+      {/* TÍTULO */}
       <Text
         style={{
           color: colors.accent,
@@ -29,11 +32,36 @@ export default function VinculoScreen({
         💕 Conectar pareja
       </Text>
 
+      {/* SI YA HAY VÍNCULO → botón para cambiar */}
+      {coupleId && !scannerActive && (
+        <Boton
+          text="🔄 Cambiar vínculo"
+          color={colors.secondary}
+          onPress={() => {
+            setCoupleId(null);
+            AsyncStorage.removeItem("couple_id");
+          }}
+        />
+      )}
+
+      {/* SI NO HAY VÍNCULO → mostrar opciones */}
       {!coupleId && !scannerActive && (
         <>
-          <Boton text="✨ Crear vínculo nuevo" color={colors.primary} onPress={crearPareja} />
-          <Boton text="📷 Escanear código" color={colors.secondary} onPress={pedirPermisoCamara} />
+          {/* CREAR NUEVO */}
+          <Boton
+            text="✨ Crear vínculo nuevo"
+            color={colors.primary}
+            onPress={crearPareja}
+          />
 
+          {/* ESCANEAR */}
+          <Boton
+            text="📷 Escanear código"
+            color={colors.secondary}
+            onPress={pedirPermisoCamara}
+          />
+
+          {/* CÓDIGO MANUAL */}
           <TextInput
             placeholder="Código manual"
             placeholderTextColor={colors.muted}
@@ -45,21 +73,59 @@ export default function VinculoScreen({
               padding: 14,
               borderRadius: 20,
               marginBottom: 10,
+              marginTop: 10,
             }}
           />
 
+          {/* BOTÓN CONECTAR */}
           <Boton
             text="Conectar"
             color={colors.primary}
-            onPress={() => {
-              if (!codigoManual.trim()) return;
+            onPress={async () => {
+              const code = codigoManual.trim();
+              if (!code) return;
+
+              // Guardar en estado global
+              setCoupleId(code);
+
+              // Guardar en AsyncStorage
+              try {
+                await AsyncStorage.setItem("couple_id", code);
+              } catch (e) {
+                console.log("Error guardando el código:", e);
+              }
+
+              // Ir al inicio
               setView("inicio");
             }}
           />
         </>
       )}
 
-      <Boton text="⬅ Volver" color={colors.warning} onPress={() => setView("inicio")} />
+      {/* SI EL ESCÁNER ESTÁ ACTIVO */}
+      {scannerActive && hasCameraPermission && (
+        <View style={{ marginTop: 20 }}>
+          <Text style={{ color: colors.text, textAlign: "center", marginBottom: 10 }}>
+            Escanea el código QR de tu pareja
+          </Text>
+
+          <TouchableOpacity
+            onPress={() => setView("inicio")}
+            style={{ marginTop: 20 }}
+          >
+            <Text style={{ color: colors.warning, textAlign: "center" }}>
+              Cancelar escaneo
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* VOLVER */}
+      <Boton
+        text="⬅ Volver"
+        color={colors.warning}
+        onPress={() => setView("inicio")}
+      />
     </Container>
   );
 }
