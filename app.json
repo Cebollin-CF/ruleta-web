@@ -14,41 +14,40 @@
     "updates": {
       "fallbackToCacheTimeout": 0
     },
-    "assetBundlePatterns": ["**/*"],
-
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "plugins": [
       [
         "expo-camera",
         {
           "cameraPermission": "La app necesita acceder a la cámara para escanear el código QR."
         }
-      ]
+      ],
+      "expo-font"
     ],
-
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.miapp"
     },
-
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1a1a2e"
       },
-      "permissions": ["android.permission.CAMERA"],
+      "permissions": [
+        "android.permission.CAMERA"
+      ],
       "package": "com.anonymous.miapp"
     },
-
     "web": {
       "favicon": "./assets/favicon.png"
     },
-
     "extra": {
       "eas": {
         "projectId": "240d22a2-423f-440e-b087-eb7ce74992af"
       }
     },
-
     "owner": "cebollins-organization"
   }
 }
