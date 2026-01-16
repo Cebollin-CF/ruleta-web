@@ -6,7 +6,7 @@ export default {
   secondary: "#B28DFF",
   accent: "#FFB3D1",
   text: "#fcf5f5",
-  muted: "#C9AFC4",
+  muted: "#9e6192",
   success: "#6BD18A",
   warning: "#F7C56D",
 };

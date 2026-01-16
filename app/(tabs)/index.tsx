@@ -338,6 +338,8 @@ if (view === "vinculo") {
         coupleId={coupleId}
         planesPorDia={planesPorDia}
         notas={notas}
+        setPlanActual={setPlanActual}
+        setIntentosRuleta={setIntentosRuleta}
       />
     );
   }

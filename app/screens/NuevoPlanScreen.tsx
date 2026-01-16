@@ -10,6 +10,8 @@ import Container from "../components/Container";
 import Boton from "../components/Boton";
 import colors from "../utils/colors";
 import { MotiView } from "moti";
+import PlanItem from "../components/PlanItem";
+import { supabase } from "../../supabaseClient";
 
 export default function NuevoPlanScreen({
   setView,
@@ -31,6 +33,8 @@ export default function NuevoPlanScreen({
   coupleId,
   planesPorDia,
   notas,
+  setPlanActual,
+  setIntentosRuleta,
 }) {
   const categoriasDisponibles = [
     "Romántico",
@@ -61,20 +65,13 @@ export default function NuevoPlanScreen({
 
       setPlanes(nuevos);
 
-      // Guardar en Supabase
-      const contenidoActual = { planes, planesPorDia, notas };
+      const contenidoActual = { planes: nuevos, planesPorDia, notas };
 
       supabase
         .from("app_state")
-        .update({
-          contenido: {
-            ...contenidoActual,
-            planes: nuevos,
-          },
-        })
+        .update({ contenido: contenidoActual })
         .eq("id", coupleId);
 
-      // Reset
       setEditando(false);
       setPlanEditandoId(null);
       setTitulo("");
@@ -85,7 +82,7 @@ export default function NuevoPlanScreen({
       return;
     }
 
-    // ➕ MODO CREAR NUEVO PLAN
+    // ➕ CREAR NUEVO PLAN
     const nuevoId = Date.now().toString();
 
     const nuevoPlan = {
@@ -99,7 +96,6 @@ export default function NuevoPlanScreen({
     setPlanes([...planes, nuevoPlan]);
     guardarNuevoPlan(nuevoPlan, coupleId);
 
-    // Reset
     setTitulo("");
     setPrecio("");
     setDuracion("");
@@ -126,7 +122,7 @@ export default function NuevoPlanScreen({
           </Text>
         </MotiView>
 
-        {/* 📝 FORMULARIO */}
+        {/* FORMULARIO */}
         <TextInput
           placeholder="Nombre del plan"
           placeholderTextColor={colors.muted}
@@ -215,7 +211,7 @@ export default function NuevoPlanScreen({
           onPress={guardarPlan}
         />
 
-        {/* 📋 LISTA DE PLANES EXISTENTES */}
+        {/* LISTA DE PLANES */}
         <Text
           style={{
             color: colors.text,
@@ -234,92 +230,38 @@ export default function NuevoPlanScreen({
         )}
 
         {planes.map((plan) => (
-          <MotiView
+          <PlanItem
             key={plan.id}
-            from={{ opacity: 0, translateY: 20 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: "timing", duration: 300 }}
-            style={{
-              backgroundColor: colors.card,
-              padding: 16,
-              borderRadius: 20,
-              marginBottom: 12,
-              shadowColor: "#000",
-              shadowOpacity: 0.15,
-              shadowRadius: 12,
-              elevation: 4,
+            plan={plan}
+            onUse={() => {
+              setPlanActual(plan);
+              setIntentosRuleta(0);
+              setView("calendario");
             }}
-          >
-            <Text
-              style={{
-                color: colors.text,
-                fontSize: 18,
-                fontWeight: "700",
-                marginBottom: 6,
-              }}
-            >
-              {plan.titulo}
-            </Text>
+            onEdit={() => {
+              setEditando(true);
+              setPlanEditandoId(plan.id);
+              setTitulo(plan.titulo);
+              setPrecio(plan.precio || "");
+              setDuracion(plan.duracion || "");
+              setCategoria(plan.categoria || "");
+            }}
+            onDelete={() => {
+              const nuevos = planes.filter((p) => p.id !== plan.id);
+              setPlanes(nuevos);
 
-            {plan.precio && (
-              <Text style={{ color: colors.muted, fontSize: 14 }}>
-                💰 {plan.precio} €
-              </Text>
-            )}
+              const contenidoActual = {
+                planes: nuevos,
+                planesPorDia,
+                notas,
+              };
 
-            {plan.duracion && (
-              <Text style={{ color: colors.muted, fontSize: 14 }}>
-                ⏳ {plan.duracion} min
-              </Text>
-            )}
-
-            {plan.categoria && (
-              <Text style={{ color: colors.muted, fontSize: 14 }}>
-                🏷 {plan.categoria}
-              </Text>
-            )}
-
-            {/* 👉 USAR PLAN */}
-            <TouchableOpacity
-              onPress={() => {
-                setPlanActual(plan);
-                setIntentosRuleta(0);
-                setView("calendario");
-              }}
-            >
-              <Text
-                style={{
-                  color: colors.secondary,
-                  marginTop: 10,
-                  fontWeight: "600",
-                }}
-              >
-                Usar →
-              </Text>
-            </TouchableOpacity>
-
-            {/* ✏️ EDITAR PLAN */}
-            <TouchableOpacity
-              onPress={() => {
-                setEditando(true);
-                setPlanEditandoId(plan.id);
-                setTitulo(plan.titulo);
-                setPrecio(plan.precio || "");
-                setDuracion(plan.duracion || "");
-                setCategoria(plan.categoria || "");
-              }}
-            >
-              <Text
-                style={{
-                  color: colors.primary,
-                  marginTop: 6,
-                  fontWeight: "600",
-                }}
-              >
-                Editar ✏️
-              </Text>
-            </TouchableOpacity>
-          </MotiView>
+              supabase
+                .from("app_state")
+                .update({ contenido: contenidoActual })
+                .eq("id", coupleId);
+            }}
+          />
         ))}
 
         <Boton

@@ -75,8 +75,8 @@ export default function ReviewScreen({
                 value={p.opinion || ""}
                 onChangeText={(text) => actualizarPlan(i, { opinion: text })}
                 style={{
-                  backgroundColor: "#f3edf7",
-                  color: colors.text,
+                  backgroundColor: "#f8f8f8",
+                  color: "#000",
                   padding: 12,
                   borderRadius: 16,
                   marginBottom: 10,
@@ -93,8 +93,8 @@ export default function ReviewScreen({
                 }
                 keyboardType="numeric"
                 style={{
-                  backgroundColor: "#f3edf7",
-                  color: colors.text,
+                  backgroundColor: "rgb(243, 237, 247)",
+                  color: "#000",
                   padding: 12,
                   borderRadius: 16,
                   marginBottom: 10,
