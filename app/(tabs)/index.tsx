@@ -146,6 +146,9 @@ export default function Index() {
   const [precio, setPrecio] = useState("");
   const [duracion, setDuracion] = useState("");
   const [categoria, setCategoria] = useState("");
+  const [codigoManual, setCodigoManual] = useState("");
+  const [editando, setEditando] = useState(false);
+  const [planEditandoId, setPlanEditandoId] = useState(null);
 
   // QR / Scanner
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
@@ -295,20 +298,47 @@ export default function Index() {
         </Text>
 
         {!coupleId && !scannerActive && (
-          <>
-            <Boton
-              text="✨ Crear vínculo nuevo"
-              color={colors.primary}
-              onPress={crearPareja}
-            />
-            <Boton
-              text="📷 Escanear código de mi pareja"
-              color={colors.secondary}
-              onPress={pedirPermisoCamara}
-            />
-          </>
-        )}
+  <>
+    <Boton
+      text="✨ Crear vínculo nuevo"
+      color={colors.primary}
+      onPress={crearPareja}
+    />
+    <Boton
+      text="📷 Escanear código de mi pareja"
+      color={colors.secondary}
+      onPress={pedirPermisoCamara}
+    />
 
+    {/* 🔽 AQUI PEGAS EL INPUT MANUAL 🔽 */}
+    <TextInput
+      placeholder="Introduce el código de tu pareja"
+      placeholderTextColor={colors.muted}
+      value={codigoManual}
+      onChangeText={setCodigoManual}
+      style={{
+        backgroundColor: colors.card,
+        color: colors.text,
+        padding: 14,
+        borderRadius: 20,
+        marginBottom: 10,
+        fontSize: 16,
+      }}
+    />
+
+    <Boton
+      text="Conectar con código manual"
+      color={colors.primary}
+      onPress={async () => {
+        if (!codigoManual.trim()) return;
+        setCoupleId(codigoManual.trim());
+        await AsyncStorage.setItem("couple_id", codigoManual.trim());
+        setView("inicio");
+      }}
+    />
+    {/* 🔼 FIN DEL INPUT MANUAL 🔼 */}
+  </>
+)}
         {scannerActive && hasCameraPermission && (
           <View style={{ flex: 1, marginTop: 20 }}>
             <BarCodeScanner
@@ -336,18 +366,80 @@ export default function Index() {
             }}
           >
             <Text style={{ color: colors.text, marginBottom: 10 }}>
-              Enseña este código a tu pareja:
-            </Text>
-            <QRCode value={coupleId} size={180} />
-            <Text
-              style={{
-                color: colors.muted,
-                marginTop: 10,
-                fontSize: 12,
-              }}
-            >
-              ID: {coupleId}
-            </Text>
+  Enseña este código a tu pareja:
+</Text>
+
+<QRCode value={coupleId} size={180} />
+
+<Text
+  style={{
+    color: colors.muted,
+    marginTop: 10,
+    fontSize: 12,
+  }}
+>
+  ID: {coupleId}
+</Text>
+
+<Text
+  style={{
+    color: colors.text,
+    marginTop: 20,
+    marginBottom: 10,
+    fontWeight: "600",
+    fontSize: 16,
+  }}
+>
+  Cambiar vínculo
+</Text>
+
+<TextInput
+  placeholder="Nuevo código de pareja"
+  placeholderTextColor={colors.muted}
+  value={codigoManual}
+  onChangeText={setCodigoManual}
+  style={{
+    backgroundColor: colors.card,
+    color: colors.text,
+    padding: 14,
+    borderRadius: 20,
+    marginBottom: 10,
+    fontSize: 16,
+  }}
+/>
+
+<Boton
+  text="Actualizar vínculo 🔄"
+  color={colors.secondary}
+  onPress={async () => {
+    if (!codigoManual.trim()) return;
+    await AsyncStorage.setItem("couple_id", codigoManual.trim());
+    setCoupleId(codigoManual.trim());
+    setCodigoManual("");
+    setView("inicio");
+  }}
+/>
+
+<Boton
+  text="Crear vínculo nuevo ✨"
+  color={colors.primary}
+  onPress={async () => {
+    const id = Math.random().toString(36).substring(2, 10);
+    await AsyncStorage.setItem("couple_id", id);
+    setCoupleId(id);
+    setView("inicio");
+  }}
+/>
+
+<Boton
+  text="Desvincular pareja ❌"
+  color={colors.warning}
+  onPress={async () => {
+    await AsyncStorage.removeItem("couple_id");
+    setCoupleId(null);
+    setView("vinculo");
+  }}
+/>
 
             <View style={{ marginTop: 20, width: "100%" }}>
               <Boton
@@ -699,11 +791,50 @@ export default function Index() {
 
           {/* GUARDAR */}
           <Boton
-  text="Guardar plan ❤️"
+  text={editando ? "Guardar cambios ✏️" : "Guardar plan ❤️"}
   color={colors.primary}
   onPress={() => {
     if (!titulo.trim()) return;
 
+    if (editando) {
+      // MODO EDICIÓN
+      const nuevos = planes.map((p) =>
+        p.id === planEditandoId
+          ? {
+              ...p,
+              titulo: titulo.trim(),
+              precio: precio.trim() || null,
+              duracion: duracion.trim() || null,
+              categoria: categoria || null,
+            }
+          : p
+      );
+
+      setPlanes(nuevos);
+
+const contenidoActual = { planes, planesPorDia };
+
+supabase
+  .from("app_state")
+  .update({
+    contenido: {
+      ...contenidoActual,
+      planes: nuevos,
+    },
+  })
+  .eq("id", coupleId);
+
+      // Reset
+      setEditando(false);
+      setPlanEditandoId(null);
+      setTitulo("");
+      setPrecio("");
+      setDuracion("");
+      setCategoria("");
+      return;
+    }
+
+    // MODO CREAR
     const nuevoId = Date.now().toString();
 
     const nuevoPlan = {
@@ -715,7 +846,6 @@ export default function Index() {
     };
 
     setPlanes([...planes, nuevoPlan]);
-
     guardarNuevoPlan(nuevoPlan, coupleId);
 
     setTitulo("");
@@ -724,6 +854,7 @@ export default function Index() {
     setCategoria("");
   }}
 />
+
 
 
           {/* LISTA DE PLANES EXISTENTES */}
@@ -744,72 +875,79 @@ export default function Index() {
             </Text>
           )}
 
-          {planes.map((plan) => (
-            <View
-              key={plan.id}
-              style={{
-                backgroundColor: colors.card,
-                padding: 16,
-                borderRadius: 20,
-                marginBottom: 12,
-                shadowColor: "#000",
-                shadowOpacity: 0.05,
-                shadowRadius: 10,
-                elevation: 2,
-              }}
-            >
-              <Text
-                style={{
-                  color: colors.text,
-                  fontSize: 18,
-                  fontWeight: "700",
-                }}
-              >
-                {plan.titulo}
-              </Text>
+{planes.map((plan) => (
+  <View
+    key={plan.id}
+    style={{
+      backgroundColor: colors.card,
+      padding: 16,
+      borderRadius: 20,
+      marginBottom: 12,
+      shadowColor: "#000",
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
+      elevation: 2,
+    }}
+  >
+    <Text
+      style={{
+        color: colors.text,
+        fontSize: 18,
+        fontWeight: "700",
+      }}
+    >
+      {plan.titulo}
+    </Text>
 
-              {plan.precio && (
-                <Text
-                  style={{ color: colors.muted, fontSize: 14 }}
-                >
-                  💰 {plan.precio} €
-                </Text>
-              )}
+    {plan.precio && (
+      <Text style={{ color: colors.muted, fontSize: 14 }}>
+        💰 {plan.precio} €
+      </Text>
+    )}
 
-              {plan.duracion && (
-                <Text
-                  style={{ color: colors.muted, fontSize: 14 }}
-                >
-                  ⏳ {plan.duracion} min
-                </Text>
-              )}
+    {plan.duracion && (
+      <Text style={{ color: colors.muted, fontSize: 14 }}>
+        ⏳ {plan.duracion} min
+      </Text>
+    )}
 
-              {plan.categoria && (
-                <Text
-                  style={{ color: colors.muted, fontSize: 14 }}
-                >
-                  🏷 {plan.categoria}
-                </Text>
-              )}
+    {plan.categoria && (
+      <Text style={{ color: colors.muted, fontSize: 14 }}>
+        🏷 {plan.categoria}
+      </Text>
+    )}
 
-              <TouchableOpacity
-                onPress={() => {
-                  setPlanActual(plan);
-                  setIntentosRuleta(0);
-                  setView("calendario");
-                }}
-              >
-                <Text
-                  style={{
-                    color: colors.secondary,
-                    marginTop: 10,
-                  }}
-                >
-                  Usar →
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ))}
+    <TouchableOpacity
+      onPress={() => {
+        setPlanActual(plan);
+        setIntentosRuleta(0);
+        setView("calendario");
+      }}
+    >
+      <Text style={{ color: colors.secondary, marginTop: 10 }}>
+        Usar →
+      </Text>
+    </TouchableOpacity>
+
+    {/* 🔽 BOTÓN EDITAR AQUÍ 🔽 */}
+    <TouchableOpacity
+      onPress={() => {
+        setEditando(true);
+        setPlanEditandoId(plan.id);
+        setTitulo(plan.titulo);
+        setPrecio(plan.precio || "");
+        setDuracion(plan.duracion || "");
+        setCategoria(plan.categoria || "");
+      }}
+    >
+      <Text style={{ color: colors.primary, marginTop: 6 }}>
+        Editar ✏️
+      </Text>
+    </TouchableOpacity>
+    {/* 🔼 FIN BOTÓN EDITAR 🔼 */}
+  </View>
+))}
+
 
           <Boton
             text="⬅ Volver"
