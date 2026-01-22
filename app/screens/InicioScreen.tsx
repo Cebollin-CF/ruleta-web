@@ -47,65 +47,80 @@ export default function InicioScreen({ setView, coupleId }) {
         onPress={() => setView("ruleta")}
       />
 
-      {/* BOTONES SECUNDARIOS ARRIBA */}
-      <View style={{ flexDirection: "row", marginTop: 20 }}>
-        <View style={{ flex: 1, marginRight: 6 }}>
-          <Boton
-            text="➕ Nuevo"
-            small
-            color={colors.secondary}
-            onPress={() => setView("nuevo")}
-          />
+      {/* BOTONES FILA 1: NUEVO + CALENDARIO */}
+<View style={{ flexDirection: "row", marginTop: 20 }}>
+  <View style={{ flex: 1, marginRight: 6 }}>
+    <Boton
+      text="➕ Nuevo"
+      small
+      color={colors.secondary}
+      onPress={() => setView("nuevo")}
+      textStyle={{
+        numberOfLines: 1,
+        ellipsizeMode: "tail",
+      }}
+      style={{
+        borderRadius: 12, // más cuadrado
+        paddingVertical: 12,
+      }}
+    />
+  </View>
+
+  <View style={{ flex: 1, marginLeft: 6 }}>
+    <Boton
+      text="📆 Calendario"
+      small
+      color={colors.success}
+      onPress={() => setView("calendario")}
+      textStyle={{
+        numberOfLines: 1,
+        ellipsizeMode: "tail",
+      }}
+      style={{
+        borderRadius: 12,
+        paddingVertical: 12,
+      }}
+    />
+  </View>
+</View>
+
+        {/* BOTONES FILA 2: TIMELINE + NOTAS */}
+        <View style={{ flexDirection: "row", marginTop: 12 }}>
+          <View style={{ flex: 1, marginRight: 6 }}>
+            <Boton
+              text="📜 Timeline"
+              small
+              color={colors.secondary}
+              onPress={() => setView("timeline")}
+              textStyle={{
+                numberOfLines: 1,
+                ellipsizeMode: "tail",
+              }}
+              style={{
+                borderRadius: 12,
+                paddingVertical: 12,
+              }}
+            />
+          </View>
+
+          <View style={{ flex: 1, marginLeft: 6 }}>
+            <Boton
+              text="📝 Notas"
+              small
+              color={colors.warning}
+              onPress={() => setView("notas")}
+              textStyle={{
+                numberOfLines: 1,
+                ellipsizeMode: "tail",
+              }}
+              style={{
+                borderRadius: 12,
+                paddingVertical: 12,
+              }}
+            />
+          </View>
         </View>
 
-        <View style={{ flex: 1, marginHorizontal: 6 }}>
-          <Boton
-            text="📆 Calendario"
-            small
-            color={colors.success}
-            onPress={() => setView("calendario")}
-          />
-        </View>
-
-        <View style={{ flex: 1, marginLeft: 6 }}>
-          <Boton
-            text="🖼 Galería"
-            small
-            color={colors.warning}
-            onPress={() => setView("galeria")}
-          />
-        </View>
-      </View>
-
-      {/* BOTONES PEQUEÑOS ABAJO */}
-      <View style={{ flexDirection: "row", marginTop: 20 }}>
-        <View style={{ flex: 1, marginRight: 6 }}>
-          <Boton
-            text="📊 Estadísticas"
-            small
-            color={colors.success}
-            onPress={() => setView("estadisticas")}
-          />
-        </View>
-
-        <View style={{ flex: 1, marginHorizontal: 6 }}>
-          <Boton
-            text="📜 Timeline"
-            small
-            color={colors.secondary}
-            onPress={() => setView("timeline")}
-          />
-        </View>
-
-        <View style={{ flex: 1, marginLeft: 6 }}>
-          <Boton
-            text="📝 Notas"
-            small
-            color={colors.warning}
-            onPress={() => setView("notas")}
-          />
-        </View>
-      </View>
 
       {/* INFO DE PAREJA */}
       <View style={{ marginTop: 30, alignItems: "center" }}>

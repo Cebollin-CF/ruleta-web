@@ -4,21 +4,14 @@ import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Notifications from "expo-notifications";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator } from "react-native";
+import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 
-import colors from "../utils/colors";
-import {
-  guardarNotas,
-  guardarNuevoPlan,
-  guardarPlanesPorDia,
-} from "../utils/supabaseHelpers";
-
+// IMPORT SUPABASE (ajusta la ruta si hace falta)
 import { supabase } from "../../supabaseClient";
 
-// 📱 PANTALLAS
+// PANTALLAS
 import CalendarioScreen from "../screens/CalendarioScreen";
 import EstadisticasScreen from "../screens/EstadisticasScreen";
-import GaleriaScreen from "../screens/GaleriaScreen";
 import InicioScreen from "../screens/InicioScreen";
 import NotasScreen from "../screens/NotasScreen";
 import NuevoPlanScreen from "../screens/NuevoPlanScreen";
@@ -27,7 +20,9 @@ import RuletaScreen from "../screens/RuletaScreen";
 import TimelineScreen from "../screens/TimelineScreen";
 import VinculoScreen from "../screens/VinculoScreen";
 
-// 📤 SUBIR FOTO A SUPABASE
+import colors from "../utils/colors";
+
+// SUBIR FOTO A SUPABASE
 async function uploadPhotoToSupabase(uri: string, coupleId: string) {
   try {
     const response = await fetch(uri);
@@ -55,7 +50,7 @@ async function uploadPhotoToSupabase(uri: string, coupleId: string) {
 }
 
 export default function Index() {
-  // 📌 ESTADOS GLOBALES
+  // ESTADOS GLOBALES
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<
     | "vinculo"
@@ -64,7 +59,6 @@ export default function Index() {
     | "nuevo"
     | "calendario"
     | "review"
-    | "galeria"
     | "notas"
     | "estadisticas"
     | "timeline"
@@ -94,6 +88,19 @@ export default function Index() {
   const [scannerActive, setScannerActive] = useState(false);
 
   const [notas, setNotas] = useState<any[]>([]);
+
+  // Toast simple para feedback visual
+  const [toast, setToast] = useState<{ text: string; visible: boolean }>({
+    text: "",
+    visible: false,
+  });
+
+  const mostrarToast = (text: string) => {
+    console.log("mostrarToast:", text);
+    setToast({ text, visible: true });
+    setTimeout(() => setToast((t) => ({ ...t, visible: false })), 3000);
+  };
+
   const [notaTexto, setNotaTexto] = useState("");
   const [notaCategoria] = useState("General");
 
@@ -105,28 +112,133 @@ export default function Index() {
     totalDuracion: 0,
   });
 
-  // 🔄 CARGAR ID DE PAREJA
-  useEffect(() => {
-  const init = async () => {
-    try {
-      const savedCoupleId = await AsyncStorage.getItem("couple_id");
+  // FUNCIONES DE PERSISTENCIA
 
-      if (savedCoupleId) {
-        setCoupleId(savedCoupleId);
-        setView("inicio");
-      } else {
-        setView("vinculo");
-      }
-    } finally {
-      setLoading(false);
+  // guardarPlanesPorDia: actualiza local y persiste; devuelve promesa
+  const guardarPlanesPorDia = async (fecha: string, nuevaLista: any[], coupleIdParam?: string) => {
+    const id = coupleIdParam ?? coupleId;
+    if (!id) {
+      console.warn("guardarPlanesPorDia: no coupleId");
+      return;
+    }
+
+    const nuevosPlanesPorDia = { ...planesPorDia };
+    if (!nuevaLista || nuevaLista.length === 0) {
+      delete nuevosPlanesPorDia[fecha];
+    } else {
+      nuevosPlanesPorDia[fecha] = nuevaLista;
+    }
+
+    // Actualizar estado local inmediatamente
+    setPlanesPorDia(nuevosPlanesPorDia);
+    console.log("guardarPlanesPorDia: local actualizado", Object.keys(nuevosPlanesPorDia));
+
+    // Persistir en Supabase y esperar
+    try {
+      console.log("guardarPlanesPorDia: persistiendo...", fecha, nuevaLista?.length ?? 0);
+      await supabase
+        .from("app_state")
+        .update({
+          contenido: {
+            planes,
+            planesPorDia: nuevosPlanesPorDia,
+            notas,
+          },
+        })
+        .eq("id", id);
+      console.log("guardarPlanesPorDia: persistencia OK");
+    } catch (err) {
+      console.error("guardarPlanesPorDia: error persistiendo", err);
+      throw err;
     }
   };
 
-  init();
-}, []);
+  const guardarNotas = async (nuevasNotas: any[], coupleIdParam?: string) => {
+    const id = coupleIdParam ?? coupleId;
+    if (!id) return;
 
+    setNotas(nuevasNotas);
 
-  // 🔄 CARGAR ESTADO DESDE SUPABASE
+    try {
+      await supabase
+        .from("app_state")
+        .update({
+          contenido: {
+            planes,
+            planesPorDia,
+            notas: nuevasNotas,
+          },
+        })
+        .eq("id", id);
+    } catch (err) {
+      console.error("Error guardando notas:", err);
+    }
+  };
+
+  const guardarNuevoPlan = async (nuevoPlan: any, coupleIdParam?: string) => {
+    const id = coupleIdParam ?? coupleId;
+    if (!id) return;
+
+    const nuevos = [nuevoPlan, ...planes];
+    setPlanes(nuevos);
+
+    try {
+      await supabase
+        .from("app_state")
+        .update({
+          contenido: {
+            planes: nuevos,
+            planesPorDia,
+            notas,
+          },
+        })
+        .eq("id", id);
+    } catch (err) {
+      console.error("Error guardando nuevo plan:", err);
+    }
+  };
+
+  // eliminarPlanEnFecha (async) — función reutilizable
+  const eliminarPlanEnFecha = async (indexEnDia: number) => {
+    console.log("Index: eliminarPlanEnFecha llamado", indexEnDia, "fecha:", fechaSeleccionada);
+    if (!fechaSeleccionada) {
+      console.warn("Index: eliminarPlanEnFecha sin fechaSeleccionada");
+      return;
+    }
+
+    const lista = planesPorDia[fechaSeleccionada] || [];
+    const nuevaLista = lista.filter((_, idx) => idx !== indexEnDia);
+
+    try {
+      await guardarPlanesPorDia(fechaSeleccionada, nuevaLista, coupleId);
+      console.log("Index: persistencia OK");
+    } catch (err) {
+      console.error("Index: error persistiendo en eliminarPlanEnFecha", err);
+      throw err;
+    }
+  };
+
+  // CARGAR ID DE PAREJA
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const savedCoupleId = await AsyncStorage.getItem("couple_id");
+
+        if (savedCoupleId) {
+          setCoupleId(savedCoupleId);
+          setView("inicio");
+        } else {
+          setView("vinculo");
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    init();
+  }, []);
+
+  // CARGAR ESTADO DESDE SUPABASE
   useEffect(() => {
     if (!coupleId) return;
 
@@ -152,7 +264,7 @@ export default function Index() {
     cargar();
   }, [coupleId]);
 
-  // 🔄 SINCRONIZACIÓN EN TIEMPO REAL
+  // SINCRONIZACIÓN EN TIEMPO REAL
   useEffect(() => {
     if (!coupleId) return;
 
@@ -180,7 +292,7 @@ export default function Index() {
     return () => supabase.removeChannel(channel);
   }, [coupleId]);
 
-  // 📊 ESTADÍSTICAS
+  // ESTADÍSTICAS
   useEffect(() => {
     const categoriasCount: any = {};
     let totalFotos = 0;
@@ -212,12 +324,12 @@ export default function Index() {
     });
   }, [planes, planesPorDia]);
 
-  // 🔔 PERMISOS NOTIFICACIONES
+  // PERMISOS NOTIFICACIONES
   useEffect(() => {
     Notifications.requestPermissionsAsync().catch(() => {});
   }, []);
 
-  // ⏳ LOADING
+  // LOADING
   if (loading) {
     return (
       <LinearGradient
@@ -229,287 +341,327 @@ export default function Index() {
     );
   }
 
-  // 🧭 NAVEGACIÓN ENTRE PANTALLAS
+  // PLANES USADOS
+  const planesUsados: any[] = [];
+  Object.keys(planesPorDia).forEach((dia) => {
+    const lista = planesPorDia[dia] || [];
+    lista.forEach((p) => {
+      planesUsados.push(p);
+    });
+  });
 
-  // 👉 VÍNCULO
-if (view === "vinculo") {
-  return (
-    <VinculoScreen
-      setView={setView}
-      coupleId={coupleId}
-      setCoupleId={setCoupleId}
-      scannerActive={scannerActive}
-      hasCameraPermission={hasCameraPermission}
-      codigoManual={codigoManual}
-      setCodigoManual={setCodigoManual}
-      pedirPermisoCamara={async () => {
-        const { status } = await BarCodeScanner.requestPermissionsAsync();
-        setHasCameraPermission(status === "granted");
-        if (status === "granted") setScannerActive(true);
-      }}
-      crearPareja={async () => {
-        const id = Math.random().toString(36).substring(2, 10);
+  const usadosQueSiguen = planesUsados
+    .filter((p) => p.seguirEnRuleta)
+    .map((p) => p.planId);
 
-        // Guardar en estado global
-        setCoupleId(id);
-
-        // Guardar en AsyncStorage
-        await AsyncStorage.setItem("couple_id", id);
-
-        // Crear registro en Supabase si no existe
-        await supabase.from("app_state").upsert({
-          id,
-          contenido: { planes: [], planesPorDia: {}, notas: [] },
-        });
-
-        setView("inicio");
-      }}
-      manejarScan={async ({ data }) => {
-        if (!data) return;
-
-        // Guardar en estado global
-        setCoupleId(data);
-
-        // Guardar en AsyncStorage
-        await AsyncStorage.setItem("couple_id", data);
-
-        setScannerActive(false);
-        setView("inicio");
-      }}
-    />
+  const noUsados = planes.filter(
+    (p) => !planesUsados.some((u) => u.planId === p.id)
   );
-}
 
+  const usadosPermitidos = planes.filter((p) =>
+    usadosQueSiguen.includes(p.id)
+  );
 
-  // 👉 INICIO
-  if (view === "inicio") {
-    return <InicioScreen setView={setView} coupleId={coupleId} />;
-  }
+  const planesDisponibles = [...noUsados, ...usadosPermitidos];
 
-  // 👉 RULETA
-  if (view === "ruleta") {
-    const girar = () => {
-      if (planes.length === 0) {
-        alert("No hay planes todavía");
-        return;
-      }
+  // NAVEGACIÓN ENTRE PANTALLAS
+  return (
+    <View style={{ flex: 1 }}>
+      {/* VÍNCULO */}
+      {view === "vinculo" && (
+        <VinculoScreen
+          setView={setView}
+          coupleId={coupleId}
+          setCoupleId={setCoupleId}
+          scannerActive={scannerActive}
+          hasCameraPermission={hasCameraPermission}
+          codigoManual={codigoManual}
+          setCodigoManual={setCodigoManual}
+          pedirPermisoCamara={async () => {
+            const { status } = await BarCodeScanner.requestPermissionsAsync();
+            setHasCameraPermission(status === "granted");
+            if (status === "granted") setScannerActive(true);
+          }}
+          crearPareja={async () => {
+            const id = Math.random().toString(36).substring(2, 10);
+            setCoupleId(id);
+            await AsyncStorage.setItem("couple_id", id);
+            await supabase.from("app_state").upsert({
+              id,
+              contenido: { planes: [], planesPorDia: {}, notas: [] },
+            });
+            setView("inicio");
+          }}
+          manejarScan={async ({ data }) => {
+            if (!data) return;
+            setCoupleId(data);
+            await AsyncStorage.setItem("couple_id", data);
+            setScannerActive(false);
+            setView("inicio");
+          }}
+        />
+      )}
 
-      if (intentosRuleta >= 3 && planActual) {
-        alert("Se acabaron los intentos");
-        return;
-      }
+      {/* INICIO */}
+      {view === "inicio" && (
+        <InicioScreen setView={setView} coupleId={coupleId} />
+      )}
 
-      const random = planes[Math.floor(Math.random() * planes.length)];
-      setPlanActual(random);
-      setIntentosRuleta((prev) => prev + 1);
-    };
+      {/* RULETA */}
+      {view === "ruleta" && (
+        <RuletaScreen
+          setView={setView}
+          planes={planesDisponibles}
+          planActual={planActual}
+          girar={() => {
+            if (planesDisponibles.length === 0) {
+              alert("No hay planes disponibles");
+              return;
+            }
 
-    return (
-      <RuletaScreen
-        setView={setView}
-        planes={planes}
-        planActual={planActual}
-        girar={girar}
-        intentosRuleta={intentosRuleta}
-      />
-    );
-  }
+            const random =
+              planesDisponibles[
+                Math.floor(Math.random() * planesDisponibles.length)
+              ];
 
-  // 👉 NUEVO PLAN
-  if (view === "nuevo") {
-    return (
-      <NuevoPlanScreen
-        setView={setView}
-        planes={planes}
-        setPlanes={setPlanes}
-        titulo={titulo}
-        setTitulo={setTitulo}
-        precio={precio}
-        setPrecio={setPrecio}
-        duracion={duracion}
-        setDuracion={setDuracion}
-        categoria={categoria}
-        setCategoria={setCategoria}
-        editando={editando}
-        setEditando={setEditando}
-        planEditandoId={planEditandoId}
-        setPlanEditandoId={setPlanEditandoId}
-        guardarNuevoPlan={guardarNuevoPlan}
-        coupleId={coupleId}
-        planesPorDia={planesPorDia}
-        notas={notas}
-        setPlanActual={setPlanActual}
-        setIntentosRuleta={setIntentosRuleta}
-      />
-    );
-  }
+            setPlanActual(random);
+            setIntentosRuleta((prev) => prev + 1);
+          }}
+          intentosRuleta={intentosRuleta}
+        />
+      )}
 
-  // 👉 CALENDARIO
-  if (view === "calendario") {
-    const markedDates = {};
-    Object.keys(planesPorDia).forEach((dia) => {
-      markedDates[dia] = { marked: true, dotColor: colors.primary };
-    });
+      {/* NUEVO PLAN */}
+      {view === "nuevo" && (
+        <NuevoPlanScreen
+          setView={setView}
+          planes={planes}
+          setPlanes={setPlanes}
+          titulo={titulo}
+          setTitulo={setTitulo}
+          precio={precio}
+          setPrecio={setPrecio}
+          duracion={duracion}
+          setDuracion={setDuracion}
+          categoria={categoria}
+          setCategoria={setCategoria}
+          editando={editando}
+          setEditando={setEditando}
+          planEditandoId={planEditandoId}
+          setPlanEditandoId={setPlanEditandoId}
+          guardarNuevoPlan={guardarNuevoPlan}
+          coupleId={coupleId}
+          planesPorDia={planesPorDia}
+          notas={notas}
+          setPlanActual={setPlanActual}
+          setIntentosRuleta={setIntentosRuleta}
+        />
+      )}
 
-    if (planActual) {
-      markedDates[new Date().toISOString().split("T")[0]] = {
-        selected: true,
-        selectedColor: colors.secondary,
-      };
-    }
+      {/* CALENDARIO */}
+      {view === "calendario" && (
+        <CalendarioScreen
+          setView={setView}
+          markedDates={(() => {
+            const marked: any = {};
+            Object.keys(planesPorDia).forEach((dia) => {
+              marked[dia] = { marked: true, dotColor: colors.primary };
+            });
+            return marked;
+          })()}
+          onDayPress={(day) => {
+            const fecha = day.dateString;
 
-    const onDayPress = (day) => {
-      const fecha = day.dateString;
+            if (planActual) {
+              const nuevosPlanesDelDia = [
+                ...(planesPorDia[fecha] || []),
+                {
+                  planId: planActual.id,
+                  fotos: [],
+                  opinion: "",
+                  puntaje: 0,
+                  precio: planActual.precio || null,
+                  duracion: planActual.duracion || null,
+                  completado: false,
+                  seguirEnRuleta: true,
+                },
+              ];
 
-      if (planActual) {
-        const nuevosPlanesDelDia = [
-          ...(planesPorDia[fecha] || []),
-          {
-            planId: planActual.id,
-            fotos: [],
-            opinion: "",
-            puntaje: 0,
-            precio: planActual.precio || null,
-            duracion: planActual.duracion || null,
-          },
-        ];
+              setPlanesPorDia({
+                ...planesPorDia,
+                [fecha]: nuevosPlanesDelDia,
+              });
 
-        setPlanesPorDia({
-          ...planesPorDia,
-          [fecha]: nuevosPlanesDelDia,
-        });
+              guardarPlanesPorDia(fecha, nuevosPlanesDelDia, coupleId);
 
-        guardarPlanesPorDia(fecha, nuevosPlanesDelDia, coupleId);
+              setPlanActual(null);
+              setIntentosRuleta(0);
+              setView("inicio");
+              return;
+            }
 
-        setPlanActual(null);
-        setIntentosRuleta(0);
-        setView("inicio");
-        return;
-      }
+            if ((planesPorDia[fecha] || []).length > 0) {
+              setFechaSeleccionada(fecha);
+              setView("review");
+            }
+          }}
+        />
+      )}
 
-      if ((planesPorDia[fecha] || []).length > 0) {
-        setFechaSeleccionada(fecha);
-        setView("review");
-      }
-    };
+      {/* REVIEW */}
+      {view === "review" && fechaSeleccionada && (
+        <ReviewScreen
+          setView={setView}
+          fechaSeleccionada={fechaSeleccionada}
+          lista={planesPorDia[fechaSeleccionada] || []}
+          actualizarPlan={(index, cambios) => {
+            const lista = planesPorDia[fechaSeleccionada] || [];
+            const nuevaLista = [...lista];
+            nuevaLista[index] = { ...nuevaLista[index], ...cambios };
 
-    return (
-      <CalendarioScreen
-        setView={setView}
-        markedDates={markedDates}
-        onDayPress={onDayPress}
-      />
-    );
-  }
+            setPlanesPorDia({
+              ...planesPorDia,
+              [fechaSeleccionada]: nuevaLista,
+            });
 
-  // 👉 REVIEW
-  if (view === "review" && fechaSeleccionada) {
-    const lista = planesPorDia[fechaSeleccionada] || [];
+            guardarPlanesPorDia(fechaSeleccionada, nuevaLista, coupleId);
+          }}
+          subirFoto={async (index) => {
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              quality: 0.7,
+            });
 
-    const actualizarPlan = (index, cambios) => {
-      const nuevaLista = [...lista];
-      nuevaLista[index] = { ...nuevaLista[index], ...cambios };
+            if (!result.canceled && result.assets?.[0]?.uri) {
+              const url = await uploadPhotoToSupabase(
+                result.assets[0].uri,
+                coupleId
+              );
+              if (!url) return;
 
-      setPlanesPorDia({
-        ...planesPorDia,
-        [fechaSeleccionada]: nuevaLista,
-      });
+              const lista = planesPorDia[fechaSeleccionada] || [];
+              const nuevasFotos = [...(lista[index].fotos || []), url];
 
-      guardarPlanesPorDia(fechaSeleccionada, nuevaLista, coupleId);
-    };
+              const nuevaLista = [...lista];
+              nuevaLista[index] = { ...nuevaLista[index], fotos: nuevasFotos };
 
-    const subirFoto = async (index) => {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.7,
-      });
+              setPlanesPorDia({
+                ...planesPorDia,
+                [fechaSeleccionada]: nuevaLista,
+              });
 
-      if (!result.canceled && result.assets?.[0]?.uri) {
-        const url = await uploadPhotoToSupabase(result.assets[0].uri, coupleId);
-        if (!url) return;
+              guardarPlanesPorDia(fechaSeleccionada, nuevaLista, coupleId);
+            }
+          }}
+          planes={planes}
+          setPlanes={setPlanes}
+          coupleId={coupleId}
+          planesPorDia={planesPorDia}
+          notas={notas}
+          eliminarPlanEnFecha={eliminarPlanEnFecha}
+          mostrarToast={mostrarToast}
+        />
+      )}
 
-        const nuevasFotos = [...(lista[index].fotos || []), url];
-        actualizarPlan(index, { fotos: nuevasFotos });
-      }
-    };
+      {/* NOTAS */}
+      {view === "notas" && (
+        <NotasScreen
+          setView={setView}
+          notaTexto={notaTexto}
+          setNotaTexto={setNotaTexto}
+          notas={notas}
+          guardarNota={async () => {
+            if (!notaTexto.trim()) return;
 
-    return (
-      <ReviewScreen
-        setView={setView}
-        fechaSeleccionada={fechaSeleccionada}
-        lista={lista}
-        actualizarPlan={actualizarPlan}
-        subirFoto={subirFoto}
-        planes={planes}
-      />
-    );
-  }
+            const nuevaNota = {
+              id: Date.now().toString(),
+              texto: notaTexto.trim(),
+              categoria: notaCategoria,
+              fecha: new Date().toISOString(),
+            };
 
-  // 👉 NOTAS
-  if (view === "notas") {
-    const guardarNotaLocal = async () => {
-      if (!notaTexto.trim()) return;
+            const nuevas = [nuevaNota, ...notas];
+            setNotas(nuevas);
+            setNotaTexto("");
 
-      const nuevaNota = {
-        id: Date.now().toString(),
-        texto: notaTexto.trim(),
-        categoria: notaCategoria,
-        fecha: new Date().toISOString(),
-      };
+            await guardarNotas(nuevas, coupleId);
+          }}
+        />
+      )}
 
-      const nuevas = [nuevaNota, ...notas];
-      setNotas(nuevas);
-      setNotaTexto("");
+      {/* ESTADÍSTICAS */}
+      {view === "estadisticas" && (
+        <EstadisticasScreen setView={setView} stats={stats} />
+      )}
 
-      await guardarNotas(nuevas, coupleId);
-    };
+      {/* TIMELINE */}
+      {view === "timeline" && (
+        <TimelineScreen
+          setView={setView}
+          eventos={(() => {
+            const eventos: any[] = [];
+            Object.keys(planesPorDia).forEach((fecha) => {
+              const lista = planesPorDia[fecha] || [];
+              lista.forEach((p) => {
+                const planInfo = planes.find((pl) => pl.id === p.planId);
+                eventos.push({
+                  fecha,
+                  titulo: planInfo?.titulo,
+                  opinion: p.opinion,
+                  puntaje: p.puntaje,
+                  fotos: p.fotos || [],
+                });
+              });
+            });
+            eventos.sort(
+              (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+            );
+            return eventos;
+          })()}
+        />
+      )}
 
-    return (
-      <NotasScreen
-        setView={setView}
-        notaTexto={notaTexto}
-        setNotaTexto={setNotaTexto}
-        notas={notas}
-        guardarNota={guardarNotaLocal}
-      />
-    );
-  }
+      {/* BOTÓN FLOTANTE DE ESTADÍSTICAS */}
+      <TouchableOpacity
+        onPress={() => setView("estadisticas")}
+        style={{
+          position: "absolute",
+          bottom: 20,
+          left: 20,
+          backgroundColor: colors.primary,
+          width: 50,
+          height: 50,
+          borderRadius: 12,
+          justifyContent: "center",
+          alignItems: "center",
+          shadowColor: "#000",
+          shadowOpacity: 0.2,
+          shadowRadius: 6,
+          elevation: 5,
+        }}
+      >
+        <Text style={{ fontSize: 24, color: "white" }}>📊</Text>
+      </TouchableOpacity>
 
-  // 👉 ESTADÍSTICAS
-  if (view === "estadisticas") {
-    return <EstadisticasScreen setView={setView} stats={stats} />;
-  }
-
-  // 👉 TIMELINE
-  if (view === "timeline") {
-    const eventos = [];
-
-    Object.keys(planesPorDia).forEach((fecha) => {
-      const lista = planesPorDia[fecha] || [];
-      lista.forEach((p) => {
-        const planInfo = planes.find((pl) => pl.id === p.planId);
-        eventos.push({
-          fecha,
-          titulo: planInfo?.titulo,
-          opinion: p.opinion,
-          puntaje: p.puntaje,
-          fotos: p.fotos || [],
-        });
-      });
-    });
-
-    eventos.sort(
-      (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
-    );
-
-    return <TimelineScreen setView={setView} eventos={eventos} />;
-  }
-
-  // 👉 GALERÍA
-  if (view === "galeria") {
-    return <GaleriaScreen setView={setView} />;
-  }
-
-  // 🛑 FALLBACK
-  return null;
+      {/* Toast simple */}
+      {toast.visible && (
+        <View
+          style={{
+            position: "absolute",
+            bottom: 20,
+            left: 20,
+            right: 20,
+            backgroundColor: "rgba(0,0,0,0.8)",
+            paddingVertical: 10,
+            paddingHorizontal: 14,
+            borderRadius: 12,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text style={{ color: "#fff", fontWeight: "700" }}>{toast.text}</Text>
+        </View>
+      )}
+    </View>
+  );
 }

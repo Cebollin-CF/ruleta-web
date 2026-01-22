@@ -1,7 +1,14 @@
 import { TouchableOpacity, Text } from "react-native";
 import { MotiView } from "moti";
 
-export default function Boton({ text, onPress, color, small }) {
+export default function Boton({
+  text,
+  onPress,
+  color,
+  small,
+  style,
+  textStyle,
+}) {
   return (
     <MotiView
       from={{ scale: 1 }}
@@ -12,24 +19,33 @@ export default function Boton({ text, onPress, color, small }) {
     >
       <TouchableOpacity
         onPress={onPress}
-        style={{
-          backgroundColor: color,
-          paddingVertical: small ? 10 : 18,
-          paddingHorizontal: small ? 14 : 24,
-          borderRadius: 20,
-          alignItems: "center",
-          shadowColor: color,
-          shadowOpacity: 0.35,
-          shadowRadius: 14,
-          elevation: 5,
-        }}
+        style={[
+          {
+            backgroundColor: color,
+            paddingVertical: small ? 10 : 18,
+            paddingHorizontal: small ? 14 : 24,
+            borderRadius: 12, // más cuadrado
+            alignItems: "center",
+            shadowColor: color,
+            shadowOpacity: 0.35,
+            shadowRadius: 14,
+            elevation: 5,
+          },
+          style,
+        ]}
       >
         <Text
-          style={{
-            color: "#fff",
-            fontSize: small ? 14 : 20,
-            fontWeight: "700",
-          }}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          style={[
+            {
+              color: "#fff",
+              fontSize: small ? 14 : 20,
+              fontWeight: "700",
+              textAlign: "center",
+            },
+            textStyle,
+          ]}
         >
           {text}
         </Text>
