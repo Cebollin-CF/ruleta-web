@@ -1,5 +1,5 @@
 import React from "react";
-import { Text, View, TextInput, TouchableOpacity } from "react-native";
+import { Text, View, TextInput, TouchableOpacity, Alert } from "react-native";
 import Container from "../components/Container";
 import Boton from "../components/Boton";
 import colors from "../utils/colors";
@@ -15,11 +15,27 @@ export default function VinculoScreen({
   setCodigoManual,
   pedirPermisoCamara,
   crearPareja,
-  manejarScan,
+  conectarPareja, // <--- Asegúrate de recibir la nueva función desde los props
 }) {
+  
+  const handleConectarManual = async () => {
+    const code = codigoManual.trim().toUpperCase(); // Limpiamos y ponemos en mayúsculas
+    if (!code) {
+      Alert.alert("Error", "Por favor, introduce un código.");
+      return;
+    }
+
+    // Usamos la función del hook que busca en Supabase antes de entrar
+    const resultado = await conectarPareja(code);
+    
+    if (resultado?.success) {
+      // Si tuvo éxito, conectarPareja ya habrá hecho el setView("inicio")
+      setCodigoManual(""); // Limpiamos el input
+    }
+  };
+
   return (
     <Container>
-      {/* TÍTULO */}
       <Text
         style={{
           color: colors.accent,
@@ -32,80 +48,78 @@ export default function VinculoScreen({
         💕 Conectar pareja
       </Text>
 
-      {/* SI YA HAY VÍNCULO → botón para cambiar */}
+      {/* SI YA HAY VÍNCULO */}
       {coupleId && !scannerActive && (
-        <Boton
-          text="🔄 Cambiar vínculo"
-          color={colors.secondary}
-          onPress={() => {
-            setCoupleId(null);
-            AsyncStorage.removeItem("couple_id");
-          }}
-        />
+        <View style={{ alignItems: 'center' }}>
+          <Text style={{ color: colors.text, marginBottom: 15 }}>
+            Código actual: <Text style={{ fontWeight: 'bold' }}>{coupleId}</Text>
+          </Text>
+          <Boton
+            text="🔄 Cambiar / Cerrar Sesión"
+            color={colors.secondary}
+            onPress={() => {
+              setCoupleId(null);
+              AsyncStorage.removeItem("couple_id");
+            }}
+          />
+        </View>
       )}
 
-      {/* SI NO HAY VÍNCULO → mostrar opciones */}
+      {/* OPCIONES DE VÍNCULO */}
       {!coupleId && !scannerActive && (
         <>
-          {/* CREAR NUEVO */}
           <Boton
             text="✨ Crear vínculo nuevo"
             color={colors.primary}
             onPress={crearPareja}
           />
 
-          {/* ESCANEAR */}
+          <View style={{ marginVertical: 20, alignItems: 'center' }}>
+            <Text style={{ color: colors.muted }}>─── O CONECTA UNO EXISTENTE ───</Text>
+          </View>
+
           <Boton
-            text="📷 Escanear código"
+            text="📷 Escanear código QR"
             color={colors.secondary}
             onPress={pedirPermisoCamara}
           />
 
-          {/* CÓDIGO MANUAL */}
           <TextInput
-            placeholder="Código manual"
+            placeholder="Introduce el código de tu pareja"
             placeholderTextColor={colors.muted}
             value={codigoManual}
             onChangeText={setCodigoManual}
+            autoCapitalize="characters" // Ayuda al usuario a escribir en mayúsculas
             style={{
               backgroundColor: colors.card,
               color: colors.text,
               padding: 14,
               borderRadius: 20,
               marginBottom: 10,
-              marginTop: 10,
+              marginTop: 20,
+              textAlign: 'center',
+              fontSize: 18,
+              fontWeight: 'bold',
+              borderWidth: 1,
+              borderColor: colors.primary
             }}
           />
 
-          {/* BOTÓN CONECTAR */}
           <Boton
             text="Conectar"
             color={colors.primary}
-            onPress={async () => {
-              const code = codigoManual.trim();
-              if (!code) return;
-
-              setCoupleId(code);
-
-              try {
-                await AsyncStorage.setItem("couple_id", code);
-              } catch (e) {
-                console.log("Error guardando el código:", e);
-              }
-
-              setView("inicio");
-            }}
+            onPress={handleConectarManual} // <--- Nueva lógica segura
           />
         </>
       )}
 
-      {/* SI EL ESCÁNER ESTÁ ACTIVO */}
+      {/* ESTADO DE ESCÁNER */}
       {scannerActive && hasCameraPermission && (
-        <View style={{ marginTop: 20 }}>
+        <View style={{ marginTop: 20, flex: 1 }}>
           <Text style={{ color: colors.text, textAlign: "center", marginBottom: 10 }}>
-            Escanea el código QR de tu pareja
+            Apunta al código de tu pareja
           </Text>
-
+          {/* Aquí iría el componente BarCodeScanner si lo usas directamente */}
           <TouchableOpacity
             onPress={() => setView("inicio")}
             style={{ marginTop: 20 }}
@@ -117,7 +131,7 @@ export default function VinculoScreen({
         </View>
       )}
 
-      {/* Botón flotante */}
+      {/* BOTÓN VOLVER */}
       <TouchableOpacity
         onPress={() => setView("inicio")}
         style={{
@@ -128,12 +142,7 @@ export default function VinculoScreen({
           paddingVertical: 12,
           paddingHorizontal: 20,
           borderRadius: 30,
-          shadowColor: colors.warning,
-          shadowOpacity: 0.4,
-          shadowRadius: 10,
           elevation: 6,
-          flexDirection: "row",
-          alignItems: "center",
         }}
       >
         <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>

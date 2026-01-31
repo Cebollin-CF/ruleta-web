@@ -14,18 +14,16 @@ export default function RazonesScreen({
 }) {
   const [nuevaRazon, setNuevaRazon] = useState("");
 
-  const handleAgregarRazon = () => {
-    console.log("handleAgregarRazon llamado");
-    console.log("Texto actual:", nuevaRazon);
-    
+  const handleAgregarRazon = async () => {
     if (!nuevaRazon.trim()) {
       Alert.alert("Campo vacío", "Escribe una razón primero");
       return;
     }
     
-    console.log("Llamando a agregarRazon con:", nuevaRazon.trim());
-    agregarRazon(nuevaRazon.trim());
-    setNuevaRazon("");
+    const resultado = await agregarRazon(nuevaRazon.trim());
+    if (resultado?.success) {
+      setNuevaRazon("");
+    }
   };
 
   return (
@@ -39,7 +37,7 @@ export default function RazonesScreen({
           textAlign: "center",
         }}
       >
-        💝 Razones para quererse
+        💍 Razones para quererse
       </Text>
 
       {/* Razón del día */}
@@ -54,6 +52,8 @@ export default function RazonesScreen({
             borderRadius: 20,
             marginBottom: 20,
             alignItems: "center",
+            borderWidth: 2,
+            borderColor: "#FFB3D1",
           }}
         >
           <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700", marginBottom: 10 }}>
@@ -83,7 +83,7 @@ export default function RazonesScreen({
           marginBottom: 10,
           minHeight: 60,
           textAlignVertical: "top",
-          borderWidth: 1,
+          borderWidth: 2,
           borderColor: colors.primary,
         }}
       />
@@ -96,6 +96,8 @@ export default function RazonesScreen({
           borderRadius: 20,
           alignItems: "center",
           marginBottom: 20,
+          borderWidth: 2,
+          borderColor: "rgba(255,255,255,0.3)",
         }}
       >
         <Text style={{ color: "#fff", fontWeight: "700", fontSize: 16 }}>
@@ -104,7 +106,7 @@ export default function RazonesScreen({
       </TouchableOpacity>
 
       {/* Lista de razones */}
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 80 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }}>
         <Text style={{ color: colors.text, fontSize: 18, fontWeight: "700", marginBottom: 10 }}>
           Todas las razones ({razones.length})
         </Text>
@@ -122,6 +124,8 @@ export default function RazonesScreen({
               marginBottom: 12,
               flexDirection: "row",
               alignItems: "center",
+              borderWidth: 2,
+              borderColor: "rgba(255,255,255,0.1)",
             }}
           >
             <View style={{ flex: 1 }}>

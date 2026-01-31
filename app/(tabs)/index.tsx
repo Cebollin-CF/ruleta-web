@@ -72,6 +72,7 @@ export default function Index() {
     setView,
     setCoupleId,
     crearPareja,
+    conectarPareja, // <--- SOLO AÑADIDO ESTO
     mostrarToast,
   } = useAppState();
 
@@ -84,13 +85,11 @@ export default function Index() {
   // Hooks para funcionalidades específicas
   const planesHook = usePlanes(coupleId);
   const razonesHook = useRazones(coupleId);
-// En tu index.tsx, cambia la línea de moodHook por esta:
-// Busca esto y déjalo EXACTAMENTE así:
-const moodHook = useMoodTracker(
-  coupleId, 
-  contenidoCompleto?.moodHoy, 
-  contenidoCompleto?.historialMoods
-);
+  const moodHook = useMoodTracker(
+    coupleId, 
+    contenidoCompleto?.moodHoy, 
+    contenidoCompleto?.historialMoods
+  );
   const notasHook = useNotas(coupleId);
   const desafiosHook = useDesafios(coupleId);
 
@@ -128,23 +127,6 @@ const moodHook = useMoodTracker(
         notasHook.setNotas(data.contenido.notas || []);
         desafiosHook.setDesafioActual(data.contenido.desafioActual || null);
         desafiosHook.setProgresoDesafio(data.contenido.progresoDesafio || 0);
-      } else {
-        // Si no existe, crear registro vacío
-        await supabase.from("app_state").upsert({
-          id: coupleId,
-          contenido: {
-            planes: [],
-            planesPorDia: {},
-            notas: [],
-            avatarUrl: null,
-            fechaAniversario: null,
-            razones: [],
-            desafioActual: null,
-            progresoDesafio: 0,
-            historialMoods: [],
-            moodHoy: {},
-          },
-        });
       }
     };
 
@@ -220,25 +202,10 @@ const moodHook = useMoodTracker(
   // Función para manejar escaneo QR
   const manejarScan = async ({ data }) => {
     if (!data) return;
-    
-    try {
-      const { data: parejaData } = await supabase
-        .from("app_state")
-        .select("id")
-        .eq("id", data)
-        .single();
-
-      if (parejaData) {
-        setCoupleId(data);
-        await AsyncStorage.setItem("couple_id", data);
+    // CORRECCIÓN: Usar conectarPareja para no sobreescribir
+    const res = await conectarPareja(data);
+    if (res?.success) {
         setScannerActive(false);
-        setView("inicio");
-        mostrarToast("Pareja vinculada exitosamente 💕");
-      } else {
-        mostrarToast("Código inválido");
-      }
-    } catch (error) {
-      mostrarToast("Error al vincular pareja");
     }
   };
 
@@ -297,6 +264,7 @@ const moodHook = useMoodTracker(
             setCodigoManual={setCodigoManual}
             pedirPermisoCamara={pedirPermisoCamara}
             crearPareja={crearPareja}
+            conectarPareja={conectarPareja} // <--- PASADO 1:1
             manejarScan={manejarScan}
             mostrarToast={mostrarToast}
           />
@@ -377,6 +345,7 @@ const moodHook = useMoodTracker(
             notas={notasHook.notas}
             setPlanActual={planesHook.setPlanActual}
             setIntentosRuleta={planesHook.setIntentosRuleta}
+            planTieneFecha={planesHook.planTieneFecha}
           />
         );
 

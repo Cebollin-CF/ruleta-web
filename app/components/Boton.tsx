@@ -13,23 +13,25 @@ export default function Boton({
     <MotiView
       from={{ scale: 1 }}
       animate={{ scale: 1 }}
-      whileTap={{ scale: 0.95 }}
-      transition={{ type: "timing", duration: 120 }}
+      whileTap={{ scale: 0.97 }} // ✅ Menos escala = más sutil
+      transition={{ type: "timing", duration: 80 }} // ✅ Más rápido (era 120)
       style={{ marginBottom: 14 }}
     >
       <TouchableOpacity
         onPress={onPress}
+        activeOpacity={0.8} // ✅ Feedback visual táctil
         style={[
           {
             backgroundColor: color,
             paddingVertical: small ? 10 : 18,
             paddingHorizontal: small ? 14 : 24,
-            borderRadius: 12, // más cuadrado
+            borderRadius: 12,
             alignItems: "center",
-            shadowColor: color,
-            shadowOpacity: 0.35,
-            shadowRadius: 14,
-            elevation: 5,
+            shadowColor: "#000",
+            shadowOpacity: 0.2,
+            shadowRadius: 6,
+            shadowOffset: { width: 0, height: 2 },
+            elevation: 3,
           },
           style,
         ]}
@@ -39,7 +41,7 @@ export default function Boton({
           ellipsizeMode="tail"
           style={[
             {
-              color: "#fff",
+              color: "#FFFFFF", // ✅ Blanco puro
               fontSize: small ? 14 : 20,
               fontWeight: "700",
               textAlign: "center",

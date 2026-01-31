@@ -10,7 +10,6 @@ import {
 import { supabase } from "../../supabaseClient";
 import Boton from "../components/Boton";
 import Container from "../components/Container";
-import PlanItem from "../components/PlanItem";
 import colors from "../utils/colors";
 
 export default function NuevoPlanScreen({
@@ -35,20 +34,8 @@ export default function NuevoPlanScreen({
   notas,
   setPlanActual,
   setIntentosRuleta,
+  planTieneFecha, // ✅ Recibido del hook
 }) {
-  const categoriasDisponibles = [
-    "Romántico",
-    "Barato",
-    "Aventura",
-    "Comida",
-    "Cine",
-    "Juegos",
-    "Naturaleza",
-  ];
-
-  const planesNormales = planes.filter((p) => !p.completado);
-  const planesCompletados = planes.filter((p) => p.completado);
-
   const guardarPlan = () => {
     if (!titulo.trim()) return;
 
@@ -100,18 +87,55 @@ export default function NuevoPlanScreen({
     setCategoria("");
   };
 
+  // ✅ FUNCIÓN PARA MOVER PLAN DE "CON FECHA" A "PENDIENTE"
+  const moverAPendiente = (planId) => {
+    // Eliminar el plan de todas las fechas
+    const nuevosPlanesPorDia = { ...planesPorDia };
+    Object.keys(nuevosPlanesPorDia).forEach((fecha) => {
+      nuevosPlanesPorDia[fecha] = nuevosPlanesPorDia[fecha].filter(
+        (p) => p.planId !== planId
+      );
+      if (nuevosPlanesPorDia[fecha].length === 0) {
+        delete nuevosPlanesPorDia[fecha];
+      }
+    });
+
+    // Actualizar en Supabase
+    supabase
+      .from("app_state")
+      .update({
+        contenido: { planes, planesPorDia: nuevosPlanesPorDia, notas },
+      })
+      .eq("id", coupleId);
+  };
+
+  // ✅ FUNCIÓN PARA MARCAR COMO COMPLETADO DESDE "CON FECHA"
+  const marcarComoCompletado = (planId) => {
+    const nuevosPlanes = planes.map((p) =>
+      p.id === planId ? { ...p, completado: true } : p
+    );
+
+    setPlanes(nuevosPlanes);
+
+    supabase
+      .from("app_state")
+      .update({
+        contenido: { planes: nuevosPlanes, planesPorDia, notas },
+      })
+      .eq("id", coupleId);
+  };
+
+  // ✅ CLASIFICAR PLANES
+  const planesPendientes = planes.filter((p) => !p.completado && !planTieneFecha(p.id));
+  const planesConFecha = planes.filter((p) => !p.completado && planTieneFecha(p.id));
+  const planesCompletados = planes.filter((p) => p.completado);
+
   return (
     <Container>
       <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
-        <MotiView
-          from={{ opacity: 0, translateY: 20 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: "timing", duration: 400 }}
-        >
-          <Text style={{ color: colors.accent, fontSize: 32, fontWeight: "800", marginBottom: 10 }}>
-            {editando ? "✏️ Editar plan" : "➕ Nuevo plan"}
-          </Text>
-        </MotiView>
+        <Text style={{ color: colors.accent, fontSize: 32, fontWeight: "800", marginBottom: 10 }}>
+          {editando ? "✏️ Editar plan" : "➕ Nuevo plan"}
+        </Text>
 
         {/* FORMULARIO */}
         <TextInput
@@ -121,43 +145,49 @@ export default function NuevoPlanScreen({
           onChangeText={setTitulo}
           style={{
             backgroundColor: colors.card,
-            color: colors.text,
+            color: "#FFFFFF",
             padding: 14,
             borderRadius: 20,
             marginBottom: 10,
+            borderWidth: 2,
+            borderColor: "#FFFFFF20",
           }}
         />
 
         <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
-            <TextInput
+          <TextInput
             placeholder="Precio (€)"
             placeholderTextColor={colors.muted}
             value={precio}
             onChangeText={setPrecio}
             keyboardType="numeric"
             style={{
-                backgroundColor: colors.card,
-                color: colors.text,
-                padding: 14,
-                borderRadius: 20,
-                flex: 1
+              backgroundColor: colors.card,
+              color: "#FFFFFF",
+              padding: 14,
+              borderRadius: 20,
+              flex: 1,
+              borderWidth: 2,
+              borderColor: "#FFFFFF20",
             }}
-            />
+          />
 
-            <TextInput
+          <TextInput
             placeholder="Minutos"
             placeholderTextColor={colors.muted}
             value={duracion}
             onChangeText={setDuracion}
             keyboardType="numeric"
             style={{
-                backgroundColor: colors.card,
-                color: colors.text,
-                padding: 14,
-                borderRadius: 20,
-                flex: 1
+              backgroundColor: colors.card,
+              color: "#FFFFFF",
+              padding: 14,
+              borderRadius: 20,
+              flex: 1,
+              borderWidth: 2,
+              borderColor: "#FFFFFF20",
             }}
-            />
+          />
         </View>
 
         <Boton
@@ -166,138 +196,337 @@ export default function NuevoPlanScreen({
           onPress={guardarPlan}
         />
 
-        {/* ====== DOS COLUMNAS ====== */}
+        {/* ====== TRES COLUMNAS ====== */}
         <View
           style={{
             flexDirection: "row",
-            gap: 12,
-            marginTop: 30,
+            gap: 8,
+            marginTop: 20,
           }}
         >
-          {/* 🟢 SIN COMPLETAR */}
+          {/* 🟢 PENDIENTES */}
           <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.text, fontSize: 16, fontWeight: "700", marginBottom: 10 }}>
+            <Text style={{ 
+              color: "#6BD18A", 
+              fontSize: 13, 
+              fontWeight: "700", 
+              marginBottom: 8,
+              textAlign: "center"
+            }}>
               🟢 Pendientes
             </Text>
 
-            {planesNormales.map((plan) => (
-              <PlanItem
-                key={plan.id}
-                plan={plan}
-                onUse={() => {
-                  setPlanActual(plan);
-                  setIntentosRuleta(0);
-                  setView("calendario");
-                }}
-                onEdit={() => {
-                  setEditando(true);
-                  setPlanEditandoId(plan.id);
-                  setTitulo(plan.titulo);
-                  setPrecio(plan.precio || "");
-                  setDuracion(plan.duracion || "");
-                  setCategoria(plan.categoria || "");
-                }}
-                onDelete={() => {
-                  const nuevos = planes.filter((p) => p.id !== plan.id);
-                  setPlanes(nuevos);
+            <ScrollView style={{ maxHeight: 500 }} showsVerticalScrollIndicator={false}>
+              {planesPendientes.map((plan) => (
+                <View
+                  key={plan.id}
+                  style={{
+                    backgroundColor: colors.card,
+                    padding: 10,
+                    borderRadius: 12,
+                    marginBottom: 8,
+                    borderWidth: 2,
+                    borderColor: "#FFFFFF20",
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: "#FFFFFF",
+                      marginBottom: 8,
+                      fontSize: 12,
+                      fontWeight: '600'
+                    }}
+                    numberOfLines={2}
+                  >
+                    {plan.titulo}
+                  </Text>
 
-                  supabase
-                    .from("app_state")
-                    .update({
-                      contenido: { planes: nuevos, planesPorDia, notas },
-                    })
-                    .eq("id", coupleId);
-                }}
-              />
-            ))}
+                  {/* ✅ BOTONES PEQUEÑOS Y ESTÉTICOS */}
+                  <View style={{ gap: 4 }}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setPlanActual(plan);
+                        setIntentosRuleta(0);
+                        setView("calendario");
+                      }}
+                      activeOpacity={0.7}
+                      style={{
+                        backgroundColor: colors.primary,
+                        paddingVertical: 5,
+                        paddingHorizontal: 6,
+                        borderRadius: 6,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 10 }}>
+                        🎯 Usar
+                      </Text>
+                    </TouchableOpacity>
+
+                    <View style={{ flexDirection: 'row', gap: 3 }}>
+                      <TouchableOpacity
+                        onPress={() => {
+                          setEditando(true);
+                          setPlanEditandoId(plan.id);
+                          setTitulo(plan.titulo);
+                          setPrecio(plan.precio || "");
+                          setDuracion(plan.duracion || "");
+                          setCategoria(plan.categoria || "");
+                        }}
+                        activeOpacity={0.7}
+                        style={{
+                          flex: 1,
+                          backgroundColor: colors.secondary,
+                          paddingVertical: 4,
+                          borderRadius: 6,
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ fontSize: 10 }}>✏️</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() => {
+                          const nuevos = planes.filter((p) => p.id !== plan.id);
+                          setPlanes(nuevos);
+                          supabase
+                            .from("app_state")
+                            .update({ contenido: { planes: nuevos, planesPorDia, notas } })
+                            .eq("id", coupleId);
+                        }}
+                        activeOpacity={0.7}
+                        style={{
+                          flex: 1,
+                          backgroundColor: colors.danger,
+                          paddingVertical: 4,
+                          borderRadius: 6,
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ fontSize: 10 }}>🗑️</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
           </View>
 
-          {/* ✓ COMPLETADOS */}
+          {/* 📅 CON FECHA */}
           <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 16, fontWeight: "700", marginBottom: 10 }}>
+            <Text style={{ 
+              color: "#FFD93D", 
+              fontSize: 13, 
+              fontWeight: "700", 
+              marginBottom: 8,
+              textAlign: "center"
+            }}>
+              📅 Con fecha
+            </Text>
+
+            <ScrollView style={{ maxHeight: 500 }} showsVerticalScrollIndicator={false}>
+              {planesConFecha.map((plan) => (
+                <View
+                  key={plan.id}
+                  style={{
+                    backgroundColor: colors.card,
+                    padding: 10,
+                    borderRadius: 12,
+                    marginBottom: 8,
+                    borderWidth: 2,
+                    borderColor: "#FFD93D40",
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: "#FFFFFF",
+                      marginBottom: 8,
+                      fontSize: 12,
+                      fontWeight: '600'
+                    }}
+                    numberOfLines={2}
+                  >
+                    {plan.titulo}
+                  </Text>
+
+                  {/* ✅ BOTONES PARA PLANES CON FECHA */}
+                  <View style={{ gap: 4 }}>
+                    <TouchableOpacity
+                      onPress={() => marcarComoCompletado(plan.id)}
+                      activeOpacity={0.7}
+                      style={{
+                        backgroundColor: colors.success,
+                        paddingVertical: 5,
+                        paddingHorizontal: 6,
+                        borderRadius: 6,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 10 }}>
+                        ✓ Hecho
+                      </Text>
+                    </TouchableOpacity>
+
+                    <View style={{ flexDirection: 'row', gap: 3 }}>
+                      <TouchableOpacity
+                        onPress={() => moverAPendiente(plan.id)}
+                        activeOpacity={0.7}
+                        style={{
+                          flex: 1,
+                          backgroundColor: colors.warning,
+                          paddingVertical: 4,
+                          borderRadius: 6,
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ fontSize: 10 }}>✕</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() => {
+                          setEditando(true);
+                          setPlanEditandoId(plan.id);
+                          setTitulo(plan.titulo);
+                          setPrecio(plan.precio || "");
+                          setDuracion(plan.duracion || "");
+                          setCategoria(plan.categoria || "");
+                        }}
+                        activeOpacity={0.7}
+                        style={{
+                          flex: 1,
+                          backgroundColor: colors.secondary,
+                          paddingVertical: 4,
+                          borderRadius: 6,
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ fontSize: 10 }}>✏️</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() => {
+                          const nuevos = planes.filter((p) => p.id !== plan.id);
+                          setPlanes(nuevos);
+                          supabase
+                            .from("app_state")
+                            .update({ contenido: { planes: nuevos, planesPorDia, notas } })
+                            .eq("id", coupleId);
+                        }}
+                        activeOpacity={0.7}
+                        style={{
+                          flex: 1,
+                          backgroundColor: colors.danger,
+                          paddingVertical: 4,
+                          borderRadius: 6,
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ fontSize: 10 }}>🗑️</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* ✅ COMPLETADOS */}
+          <View style={{ flex: 1 }}>
+            <Text style={{ 
+              color: colors.muted, 
+              fontSize: 13, 
+              fontWeight: "700", 
+              marginBottom: 8,
+              textAlign: "center"
+            }}>
               ✓ Hechos
             </Text>
 
-            {planesCompletados.map((plan) => (
-              <View
-                key={plan.id}
-                style={{
-                  backgroundColor: colors.card,
-                  padding: 12,
-                  borderRadius: 16,
-                  marginBottom: 14,
-                  opacity: 0.8
-                }}
-              >
-                <Text
+            <ScrollView style={{ maxHeight: 500 }} showsVerticalScrollIndicator={false}>
+              {planesCompletados.map((plan) => (
+                <View
+                  key={plan.id}
                   style={{
-                    color: colors.muted,
-                    textDecorationLine: "line-through",
-                    marginBottom: 10,
-                    fontSize: 14,
-                    fontWeight: '600'
+                    backgroundColor: colors.card,
+                    padding: 10,
+                    borderRadius: 12,
+                    marginBottom: 8,
+                    opacity: 0.7,
+                    borderWidth: 2,
+                    borderColor: "#FFFFFF10",
                   }}
                 >
-                  {plan.titulo}
-                </Text>
+                  <Text
+                    style={{
+                      color: colors.muted,
+                      textDecorationLine: "line-through",
+                      marginBottom: 8,
+                      fontSize: 11,
+                      fontWeight: '600'
+                    }}
+                    numberOfLines={2}
+                  >
+                    {plan.titulo}
+                  </Text>
 
-                <View style={{ gap: 5 }}>
+                  <View style={{ gap: 4 }}>
                     <TouchableOpacity
-                    onPress={() => {
+                      onPress={() => {
                         const nuevoPlan = {
-                        ...plan,
-                        id: Date.now().toString() + Math.random().toString(36).slice(2),
-                        completado: false,
-                        seguirEnRuleta: true,
+                          ...plan,
+                          id: Date.now().toString() + Math.random().toString(36).slice(2),
+                          completado: false,
+                          seguirEnRuleta: true,
                         };
 
                         const nuevos = [
-                        ...planes.filter((p) => p.id !== plan.id),
-                        nuevoPlan,
+                          ...planes.filter((p) => p.id !== plan.id),
+                          nuevoPlan,
                         ];
 
                         setPlanes(nuevos);
 
                         supabase
-                        .from("app_state")
-                        .update({
-                            contenido: { planes: nuevos, planesPorDia, notas },
-                        })
-                        .eq("id", coupleId);
-                    }}
-                    style={{
+                          .from("app_state")
+                          .update({ contenido: { planes: nuevos, planesPorDia, notas } })
+                          .eq("id", coupleId);
+                      }}
+                      activeOpacity={0.7}
+                      style={{
                         backgroundColor: colors.success,
-                        paddingVertical: 8,
-                        borderRadius: 10,
+                        paddingVertical: 5,
+                        borderRadius: 6,
                         alignItems: 'center'
-                    }}
+                      }}
                     >
-                    <Text style={{ color: "#fff", fontWeight: "700", fontSize: 11 }}>
+                      <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 9 }}>
                         🔄 Reusar
-                    </Text>
+                      </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        onPress={() => {
-                            const nuevos = planes.filter((p) => p.id !== plan.id);
-                            setPlanes(nuevos);
-                            supabase
-                                .from("app_state")
-                                .update({ contenido: { planes: nuevos, planesPorDia, notas } })
-                                .eq("id", coupleId);
-                        }}
-                        style={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                            paddingVertical: 6,
-                            borderRadius: 10,
-                            alignItems: 'center'
-                        }}
+                      onPress={() => {
+                        const nuevos = planes.filter((p) => p.id !== plan.id);
+                        setPlanes(nuevos);
+                        supabase
+                          .from("app_state")
+                          .update({ contenido: { planes: nuevos, planesPorDia, notas } })
+                          .eq("id", coupleId);
+                      }}
+                      activeOpacity={0.7}
+                      style={{
+                        backgroundColor: '#FFFFFF15',
+                        paddingVertical: 4,
+                        borderRadius: 6,
+                        alignItems: 'center'
+                      }}
                     >
-                        <Text style={{ color: colors.muted, fontSize: 10 }}>Borrar</Text>
+                      <Text style={{ color: colors.muted, fontSize: 9 }}>Borrar</Text>
                     </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-            ))}
+              ))}
+            </ScrollView>
           </View>
         </View>
       </ScrollView>
@@ -305,6 +534,7 @@ export default function NuevoPlanScreen({
       {/* Botón flotante */}
       <TouchableOpacity
         onPress={() => setView("inicio")}
+        activeOpacity={0.8}
         style={{
           position: "absolute",
           bottom: 30,
@@ -313,15 +543,15 @@ export default function NuevoPlanScreen({
           paddingVertical: 12,
           paddingHorizontal: 20,
           borderRadius: 30,
-          shadowColor: colors.warning,
-          shadowOpacity: 0.4,
-          shadowRadius: 10,
+          shadowColor: "#000",
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
           elevation: 6,
           flexDirection: "row",
           alignItems: "center",
         }}
       >
-        <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
+        <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "700" }}>
           ⬅ Volver
         </Text>
       </TouchableOpacity>

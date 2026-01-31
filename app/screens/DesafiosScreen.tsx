@@ -10,16 +10,8 @@ export default function DesafiosScreen({
   progreso,
   completarDesafio,
   generarNuevoDesafio,
+  desafiosDisponibles, // Lista de desafíos desde el hook
 }) {
-  const desafiosDisponibles = [
-    { emoji: "📸", texto: "Enviaos 1 foto diaria durante 7 días", meta: 7 },
-    { emoji: "💌", texto: "Escribid 1 cosa bonita al día durante 5 días", meta: 5 },
-    { emoji: "🎁", texto: "Sorprendeos con detalles pequeños 3 veces", meta: 3 },
-    { emoji: "🍽️", texto: "Cocinад juntos 4 comidas esta semana", meta: 4 },
-    { emoji: "🚶", texto: "Dad un paseo juntos 6 días seguidos", meta: 6 },
-    { emoji: "❤️", texto: "Decidnos 'te quiero' sin motivo 10 veces", meta: 10 },
-  ];
-
   const porcentaje = desafioActual ? Math.min((progreso / desafioActual.meta) * 100, 100) : 0;
 
   return (
@@ -47,6 +39,8 @@ export default function DesafiosScreen({
             padding: 24,
             borderRadius: 20,
             marginBottom: 20,
+            borderWidth: 3,
+            borderColor: "#FFB3D1",
           }}
         >
           <Text style={{ color: "#fff", fontSize: 50, textAlign: "center", marginBottom: 10 }}>
@@ -120,6 +114,8 @@ export default function DesafiosScreen({
             borderRadius: 20,
             alignItems: "center",
             marginBottom: 20,
+            borderWidth: 3,
+            borderColor: "#FFB3D1",
           }}
         >
           <Text style={{ fontSize: 50, marginBottom: 10 }}>🎲</Text>
@@ -130,14 +126,18 @@ export default function DesafiosScreen({
       )}
 
       {/* Lista de desafíos disponibles */}
-      <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
         <Text style={{ color: colors.text, fontSize: 18, fontWeight: "700", marginBottom: 12 }}>
           Ideas de desafíos
         </Text>
 
-        {desafiosDisponibles.map((desafio, idx) => (
+        {/* CORTOS */}
+        <Text style={{ color: colors.accent, fontSize: 16, fontWeight: "700", marginBottom: 8, marginTop: 10 }}>
+          ⚡ Desafíos cortos (1-3 días)
+        </Text>
+        {desafiosDisponibles?.filter(d => d.duracion === "corto").map((desafio, idx) => (
           <View
-            key={idx}
+            key={`corto-${idx}`}
             style={{
               backgroundColor: colors.card,
               padding: 16,
@@ -145,10 +145,93 @@ export default function DesafiosScreen({
               marginBottom: 10,
               flexDirection: "row",
               alignItems: "center",
+              borderWidth: 2,
+              borderColor: "rgba(255,255,255,0.1)",
             }}
           >
             <Text style={{ fontSize: 30, marginRight: 12 }}>{desafio.emoji}</Text>
-            <Text style={{ color: colors.text, flex: 1 }}>{desafio.texto}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.text }}>{desafio.texto}</Text>
+              <Text style={{ color: colors.muted, fontSize: 12 }}>Meta: {desafio.meta}</Text>
+            </View>
+          </View>
+        ))}
+
+        {/* MEDIOS */}
+        <Text style={{ color: colors.accent, fontSize: 16, fontWeight: "700", marginBottom: 8, marginTop: 10 }}>
+          📅 Desafíos medios (5-7 días)
+        </Text>
+        {desafiosDisponibles?.filter(d => d.duracion === "medio").map((desafio, idx) => (
+          <View
+            key={`medio-${idx}`}
+            style={{
+              backgroundColor: colors.card,
+              padding: 16,
+              borderRadius: 16,
+              marginBottom: 10,
+              flexDirection: "row",
+              alignItems: "center",
+              borderWidth: 2,
+              borderColor: "rgba(255,255,255,0.1)",
+            }}
+          >
+            <Text style={{ fontSize: 30, marginRight: 12 }}>{desafio.emoji}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.text }}>{desafio.texto}</Text>
+              <Text style={{ color: colors.muted, fontSize: 12 }}>Meta: {desafio.meta}</Text>
+            </View>
+          </View>
+        ))}
+
+        {/* LARGOS */}
+        <Text style={{ color: colors.accent, fontSize: 16, fontWeight: "700", marginBottom: 8, marginTop: 10 }}>
+          🏆 Desafíos largos (10+ días)
+        </Text>
+        {desafiosDisponibles?.filter(d => d.duracion === "largo").map((desafio, idx) => (
+          <View
+            key={`largo-${idx}`}
+            style={{
+              backgroundColor: colors.card,
+              padding: 16,
+              borderRadius: 16,
+              marginBottom: 10,
+              flexDirection: "row",
+              alignItems: "center",
+              borderWidth: 2,
+              borderColor: "rgba(255,255,255,0.1)",
+            }}
+          >
+            <Text style={{ fontSize: 30, marginRight: 12 }}>{desafio.emoji}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.text }}>{desafio.texto}</Text>
+              <Text style={{ color: colors.muted, fontSize: 12 }}>Meta: {desafio.meta}</Text>
+            </View>
+          </View>
+        ))}
+
+        {/* ÚNICOS */}
+        <Text style={{ color: colors.accent, fontSize: 16, fontWeight: "700", marginBottom: 8, marginTop: 10 }}>
+          ⭐ Desafíos únicos (una vez)
+        </Text>
+        {desafiosDisponibles?.filter(d => d.duracion === "unico").map((desafio, idx) => (
+          <View
+            key={`unico-${idx}`}
+            style={{
+              backgroundColor: colors.card,
+              padding: 16,
+              borderRadius: 16,
+              marginBottom: 10,
+              flexDirection: "row",
+              alignItems: "center",
+              borderWidth: 2,
+              borderColor: "rgba(255,255,255,0.1)",
+            }}
+          >
+            <Text style={{ fontSize: 30, marginRight: 12 }}>{desafio.emoji}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.text }}>{desafio.texto}</Text>
+              <Text style={{ color: colors.muted, fontSize: 12 }}>Meta: {desafio.meta}</Text>
+            </View>
           </View>
         ))}
       </ScrollView>

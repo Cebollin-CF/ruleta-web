@@ -3,7 +3,6 @@ import { View, Text, TouchableOpacity } from "react-native";
 import colors from "../utils/colors";
 import Boton from "./Boton";
 
-
 export default function PlanItem({ plan, onUse, onEdit, onDelete }) {
   return (
     <View
@@ -13,12 +12,14 @@ export default function PlanItem({ plan, onUse, onEdit, onDelete }) {
         borderRadius: 20,
         marginBottom: 12,
         position: "relative",
+        borderWidth: 2,
+        borderColor: "#FFFFFF20",
       }}
     >
       {/* Título del plan */}
       <Text
         style={{
-          color: colors.text,
+          color: "#FFFFFF", // ✅ Blanco puro (era colors.text)
           fontSize: 18,
           fontWeight: "700",
           marginBottom: 10,
@@ -51,6 +52,7 @@ export default function PlanItem({ plan, onUse, onEdit, onDelete }) {
       {/* Botón borrar redondo */}
       <TouchableOpacity
         onPress={onDelete}
+        activeOpacity={0.7}
         style={{
           position: "absolute",
           right: 12,
@@ -61,10 +63,13 @@ export default function PlanItem({ plan, onUse, onEdit, onDelete }) {
           borderRadius: 21,
           justifyContent: "center",
           alignItems: "center",
+          shadowColor: "#000",
+          shadowOpacity: 0.3,
+          shadowRadius: 4,
           elevation: 4,
         }}
       >
-        <Text style={{ color: "white", fontSize: 20 }}>🗑️</Text>
+        <Text style={{ color: "#FFFFFF", fontSize: 20 }}>🗑️</Text>
       </TouchableOpacity>
     </View>
   );
