@@ -56,7 +56,35 @@ export default function ReviewScreen({
     }
   };
 
-  // Depuración: mostrar props recibidas
+  // Función para eliminar una foto específica
+  const eliminarFoto = (indexPlan, indexFoto) => {
+    const confirmar = () => {
+      const listaActual = planesPorDia[fechaSeleccionada] || [];
+      const plan = listaActual[indexPlan];
+      const nuevasFotos = (plan.fotos || []).filter((_, idx) => idx !== indexFoto);
+
+      actualizarPlan(indexPlan, { fotos: nuevasFotos });
+
+      if (typeof mostrarToast === "function") {
+        mostrarToast("Foto eliminada");
+      }
+    };
+
+    if (Platform.OS === "web") {
+      const ok = window.confirm("¿Eliminar esta foto?");
+      if (ok) confirmar();
+    } else {
+      Alert.alert(
+        "Eliminar foto",
+        "¿Estás seguro de que quieres eliminar esta foto?",
+        [
+          { text: "Cancelar", style: "cancel" },
+          { text: "Eliminar", style: "destructive", onPress: confirmar },
+        ]
+      );
+    }
+  };
+
   console.log("ReviewScreen props:", {
     fechaSeleccionada,
     listaLength: lista?.length,
@@ -66,7 +94,7 @@ export default function ReviewScreen({
 
   return (
     <Container>
-      <ScrollView>
+      <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
         <Text
           style={{
             color: colors.accent,
@@ -95,7 +123,7 @@ export default function ReviewScreen({
                 position: "relative",
               }}
             >
-              {/* Botón BORRAR en la esquina superior derecha */}
+              {/* Botón BORRAR PLAN en la esquina superior derecha */}
               <View
                 style={{
                   position: "absolute",
@@ -112,7 +140,6 @@ export default function ReviewScreen({
                   onPress={() => {
                     console.log("ReviewScreen: onPress ✕ (inicio) - índice:", i);
 
-                    // Fallback para web: usar window.confirm
                     if (Platform.OS === "web") {
                       const ok = window.confirm(
                         "¿Seguro que quieres eliminar este plan de la fecha?"
@@ -143,7 +170,6 @@ export default function ReviewScreen({
                       return;
                     }
 
-                    // Móvil / nativo: usar Alert.alert
                     Alert.alert(
                       "Eliminar plan",
                       "¿Seguro que quieres eliminar este plan de la fecha?",
@@ -257,38 +283,85 @@ export default function ReviewScreen({
                 }}
               />
 
-              {/* FOTO */}
+              {/* BOTÓN AÑADIR FOTO */}
               <Boton
                 text="Añadir foto 📸"
                 color={colors.secondary}
                 onPress={() => subirFoto(i)}
               />
 
-              {/* ScrollView horizontal para fotos */}
-              <ScrollView horizontal style={{ marginTop: 10 }}>
-                {(p.fotos || []).map((fotoUrl, idx) => (
-                  <View key={idx} style={{ marginRight: 8 }}>
-                    <Image
-                      source={{ uri: fotoUrl }}
+              {/* GALERÍA DE FOTOS con opción de borrar */}
+              {(p.fotos || []).length > 0 && (
+                <ScrollView horizontal style={{ marginTop: 10 }}>
+                  {(p.fotos || []).map((fotoUrl, idx) => (
+                    <View
+                      key={idx}
                       style={{
-                        width: 80,
-                        height: 80,
-                        borderRadius: 16,
+                        marginRight: 8,
+                        position: "relative",
                       }}
-                    />
-                  </View>
-                ))}
-              </ScrollView>
+                    >
+                      <Image
+                        source={{ uri: fotoUrl }}
+                        style={{
+                          width: 80,
+                          height: 80,
+                          borderRadius: 16,
+                        }}
+                      />
+                      {/* Botón X para borrar foto */}
+                      <TouchableOpacity
+                        onPress={() => eliminarFoto(i, idx)}
+                        style={{
+                          position: "absolute",
+                          top: -6,
+                          right: -6,
+                          backgroundColor: colors.danger,
+                          width: 24,
+                          height: 24,
+                          borderRadius: 12,
+                          justifyContent: "center",
+                          alignItems: "center",
+                          borderWidth: 2,
+                          borderColor: "#fff",
+                        }}
+                      >
+                        <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>
+                          ✕
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
             </MotiView>
           );
         })}
-
-        <Boton
-          text="⬅ Volver"
-          color={colors.warning}
-          onPress={() => setView("inicio")}
-        />
       </ScrollView>
+
+      {/* Botón flotante */}
+      <TouchableOpacity
+        onPress={() => setView("inicio")}
+        style={{
+          position: "absolute",
+          bottom: 30,
+          left: 20,
+          backgroundColor: colors.warning,
+          paddingVertical: 12,
+          paddingHorizontal: 20,
+          borderRadius: 30,
+          shadowColor: colors.warning,
+          shadowOpacity: 0.4,
+          shadowRadius: 10,
+          elevation: 6,
+          flexDirection: "row",
+          alignItems: "center",
+        }}
+      >
+        <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
+          ⬅ Volver
+        </Text>
+      </TouchableOpacity>
     </Container>
   );
 }

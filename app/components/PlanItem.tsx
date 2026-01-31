@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity } from "react-native";
 import colors from "../utils/colors";
 import Boton from "./Boton";
 
+
 export default function PlanItem({ plan, onUse, onEdit, onDelete }) {
   return (
     <View

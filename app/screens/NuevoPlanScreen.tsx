@@ -102,7 +102,7 @@ export default function NuevoPlanScreen({
 
   return (
     <Container>
-      <ScrollView>
+      <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
         <MotiView
           from={{ opacity: 0, translateY: 20 }}
           animate={{ opacity: 1, translateY: 0 }}
@@ -212,10 +212,10 @@ export default function NuevoPlanScreen({
             ))}
           </View>
 
-          {/* ✔ COMPLETADOS */}
+          {/* ✓ COMPLETADOS */}
           <View style={{ flex: 1 }}>
             <Text style={{ color: colors.muted, fontSize: 16, fontWeight: "700", marginBottom: 10 }}>
-              ✔ Hechos
+              ✓ Hechos
             </Text>
 
             {planesCompletados.map((plan) => (
@@ -300,15 +300,31 @@ export default function NuevoPlanScreen({
             ))}
           </View>
         </View>
-
-        <View style={{ marginTop: 20 }}>
-            <Boton
-            text="⬅ Volver"
-            color={colors.warning}
-            onPress={() => setView("inicio")}
-            />
-        </View>
       </ScrollView>
+
+      {/* Botón flotante */}
+      <TouchableOpacity
+        onPress={() => setView("inicio")}
+        style={{
+          position: "absolute",
+          bottom: 30,
+          left: 20,
+          backgroundColor: colors.warning,
+          paddingVertical: 12,
+          paddingHorizontal: 20,
+          borderRadius: 30,
+          shadowColor: colors.warning,
+          shadowOpacity: 0.4,
+          shadowRadius: 10,
+          elevation: 6,
+          flexDirection: "row",
+          alignItems: "center",
+        }}
+      >
+        <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
+          ⬅ Volver
+        </Text>
+      </TouchableOpacity>
     </Container>
   );
 }

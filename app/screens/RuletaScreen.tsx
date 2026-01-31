@@ -1,5 +1,5 @@
 import React from "react";
-import { Text, View } from "react-native";
+import { Text, View, TouchableOpacity } from "react-native";
 import Container from "../components/Container";
 import Boton from "../components/Boton";
 import colors from "../utils/colors";
@@ -20,6 +20,7 @@ export default function RuletaScreen({
           fontSize: 32,
           fontWeight: "800",
           marginBottom: 20,
+          textAlign: "center",
         }}
       >
         🎡 Ruleta de planes
@@ -38,28 +39,105 @@ export default function RuletaScreen({
           justifyContent: "center",
           alignItems: "center",
           marginBottom: 20,
+          borderWidth: 4,
+          borderColor: colors.primary,
         }}
       >
-        <Text style={{ color: colors.primary, fontSize: 22 }}>🎲</Text>
+        <Text style={{ color: colors.primary, fontSize: 40 }}>🎲</Text>
       </MotiView>
 
       {!planActual ? (
-        <Boton text="Girar ruleta 🎲" color={colors.primary} onPress={girar} />
+        <View style={{ alignItems: "center" }}>
+          <Boton 
+            text="Girar ruleta 🎲" 
+            color={colors.primary} 
+            onPress={girar}
+            style={{ paddingHorizontal: 40 }}
+          />
+          <Text style={{ 
+            color: colors.muted, 
+            fontSize: 14, 
+            marginTop: 10,
+            textAlign: "center"
+          }}>
+            Planes disponibles: {planes.length}
+          </Text>
+        </View>
       ) : (
         <>
-          <Text style={{ color: colors.primary, fontSize: 26, textAlign: "center" }}>
-            {planActual.titulo}
-          </Text>
+          <View style={{
+            backgroundColor: "rgba(255, 107, 157, 0.2)",
+            padding: 20,
+            borderRadius: 20,
+            marginBottom: 20,
+            alignItems: "center",
+            borderWidth: 2,
+            borderColor: colors.primary,
+          }}>
+            <Text style={{ 
+              color: colors.primary, 
+              fontSize: 26, 
+              fontWeight: "800",
+              textAlign: "center",
+              marginBottom: 10,
+            }}>
+              {planActual.titulo}
+            </Text>
+            
+            {planActual.precio && (
+              <Text style={{ color: colors.text, fontSize: 16 }}>
+                💰 Aprox: {planActual.precio}€
+              </Text>
+            )}
+            
+            {planActual.duracion && (
+              <Text style={{ color: colors.text, fontSize: 16 }}>
+                ⏱️ Duración: {planActual.duracion} min
+              </Text>
+            )}
+          </View>
 
-          {intentosRuleta < 3 && (
-            <Boton text="Quiero otro 😈" color={colors.secondary} onPress={girar} />
-          )}
+          <View style={{ gap: 15 }}>
+            {intentosRuleta < 3 && (
+              <Boton 
+                text="Quiero otro 😈" 
+                color={colors.secondary} 
+                onPress={girar} 
+              />
+            )}
 
-          <Boton text="Este mola ❤️" color={colors.success} onPress={() => setView("calendario")} />
+            <Boton 
+              text="Este mola ❤️" 
+              color={colors.success} 
+              onPress={() => setView("calendario")} 
+            />
+          </View>
         </>
       )}
 
-      <Boton text="⬅ Volver" color={colors.warning} onPress={() => setView("inicio")} />
+      {/* Botón flotante */}
+      <TouchableOpacity
+        onPress={() => setView("inicio")}
+        style={{
+          position: "absolute",
+          bottom: 30,
+          left: 20,
+          backgroundColor: colors.warning,
+          paddingVertical: 12,
+          paddingHorizontal: 20,
+          borderRadius: 30,
+          shadowColor: colors.warning,
+          shadowOpacity: 0.4,
+          shadowRadius: 10,
+          elevation: 6,
+          flexDirection: "row",
+          alignItems: "center",
+        }}
+      >
+        <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
+          ⬅ Volver
+        </Text>
+      </TouchableOpacity>
     </Container>
   );
 }

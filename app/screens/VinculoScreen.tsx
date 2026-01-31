@@ -85,17 +85,14 @@ export default function VinculoScreen({
               const code = codigoManual.trim();
               if (!code) return;
 
-              // Guardar en estado global
               setCoupleId(code);
 
-              // Guardar en AsyncStorage
               try {
                 await AsyncStorage.setItem("couple_id", code);
               } catch (e) {
                 console.log("Error guardando el código:", e);
               }
 
-              // Ir al inicio
               setView("inicio");
             }}
           />
@@ -120,12 +117,29 @@ export default function VinculoScreen({
         </View>
       )}
 
-      {/* VOLVER */}
-      <Boton
-        text="⬅ Volver"
-        color={colors.warning}
+      {/* Botón flotante */}
+      <TouchableOpacity
         onPress={() => setView("inicio")}
-      />
+        style={{
+          position: "absolute",
+          bottom: 30,
+          left: 20,
+          backgroundColor: colors.warning,
+          paddingVertical: 12,
+          paddingHorizontal: 20,
+          borderRadius: 30,
+          shadowColor: colors.warning,
+          shadowOpacity: 0.4,
+          shadowRadius: 10,
+          elevation: 6,
+          flexDirection: "row",
+          alignItems: "center",
+        }}
+      >
+        <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
+          ⬅ Volver
+        </Text>
+      </TouchableOpacity>
     </Container>
   );
 }

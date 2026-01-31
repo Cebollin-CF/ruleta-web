@@ -1,36 +1,114 @@
 import React from "react";
-import { Text, ScrollView, Image } from "react-native";
+import { Text, ScrollView, Image, View, TouchableOpacity } from "react-native";
+import { MotiView } from "moti";
 import Container from "../components/Container";
-import Boton from "../components/Boton";
 import colors from "../utils/colors";
 
 export default function TimelineScreen({ setView, eventos }) {
   return (
     <Container>
-      <Text style={{ color: colors.accent, fontSize: 32, fontWeight: "800" }}>
+      <Text style={{ color: colors.accent, fontSize: 32, fontWeight: "800", marginBottom: 20 }}>
         📜 Recuerdos juntos
       </Text>
 
-      <ScrollView>
+      <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
         {eventos.map((ev, idx) => (
-          <Container key={idx} style={{ marginBottom: 20 }}>
-            <Text style={{ color: colors.text }}>{ev.fecha}</Text>
-            <Text style={{ color: colors.primary, fontSize: 18 }}>{ev.titulo}</Text>
+          <MotiView
+            key={idx}
+            from={{ opacity: 0, translateX: idx % 2 === 0 ? -30 : 30 }}
+            animate={{ opacity: 1, translateX: 0 }}
+            transition={{ type: "timing", duration: 400, delay: idx * 100 }}
+            style={{
+              backgroundColor: colors.card,
+              padding: 16,
+              borderRadius: 20,
+              marginBottom: 20,
+              position: "relative",
+            }}
+          >
+            {/* Fecha */}
+            <Text style={{ color: colors.accent, fontSize: 14, fontWeight: "700", marginBottom: 6 }}>
+              📅 {new Date(ev.fecha).toLocaleDateString("es-ES", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </Text>
 
-            <ScrollView horizontal>
-              {ev.fotos.map((url, i) => (
-                <Image
-                  key={i}
-                  source={{ uri: url }}
-                  style={{ width: 80, height: 80, borderRadius: 16, marginRight: 8 }}
-                />
-              ))}
-            </ScrollView>
-          </Container>
+            {/* Título */}
+            <Text style={{ color: colors.primary, fontSize: 20, fontWeight: "800", marginBottom: 8 }}>
+              {ev.titulo || "Plan sin título"}
+            </Text>
+
+            {/* Opinión */}
+            {ev.opinion && (
+              <Text style={{ color: colors.text, fontSize: 14, marginBottom: 10, fontStyle: "italic" }}>
+                💭 "{ev.opinion}"
+              </Text>
+            )}
+
+            {/* Puntuación */}
+            {ev.puntaje > 0 && (
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
+                <Text style={{ color: colors.warning, fontSize: 16, fontWeight: "700" }}>
+                  ⭐ {ev.puntaje}/10
+                </Text>
+              </View>
+            )}
+
+            {/* Fotos */}
+            {ev.fotos && ev.fotos.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
+                {ev.fotos.map((url, i) => (
+                  <Image
+                    key={i}
+                    source={{ uri: url }}
+                    style={{
+                      width: 100,
+                      height: 100,
+                      borderRadius: 16,
+                      marginRight: 8,
+                      borderWidth: 2,
+                      borderColor: colors.primary,
+                    }}
+                  />
+                ))}
+              </ScrollView>
+            )}
+          </MotiView>
         ))}
+
+        {eventos.length === 0 && (
+          <Text style={{ color: colors.muted, textAlign: "center", marginTop: 40, fontSize: 16 }}>
+            Aún no hay recuerdos guardados. ¡Empezad a crear planes juntos! 💕
+          </Text>
+        )}
       </ScrollView>
 
-      <Boton text="⬅ Volver" color={colors.warning} onPress={() => setView("inicio")} />
+      {/* Botón flotante */}
+      <TouchableOpacity
+        onPress={() => setView("inicio")}
+        style={{
+          position: "absolute",
+          bottom: 30,
+          left: 20,
+          backgroundColor: colors.warning,
+          paddingVertical: 12,
+          paddingHorizontal: 20,
+          borderRadius: 30,
+          shadowColor: colors.warning,
+          shadowOpacity: 0.4,
+          shadowRadius: 10,
+          elevation: 6,
+          flexDirection: "row",
+          alignItems: "center",
+        }}
+      >
+        <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
+          ⬅ Volver
+        </Text>
+      </TouchableOpacity>
     </Container>
   );
 }

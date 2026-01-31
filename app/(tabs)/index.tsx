@@ -1,28 +1,40 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { BarCodeScanner } from "expo-camera";
-import * as ImagePicker from "expo-image-picker";
-import { LinearGradient } from "expo-linear-gradient";
-import * as Notifications from "expo-notifications";
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useState } from 'react';
+// CORRECCIÓN: Se añade Alert para que funcionen los avisos y AsyncStorage
+import { View, ActivityIndicator, Text, TouchableOpacity, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BarCodeScanner } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 
-// IMPORT SUPABASE (ajusta la ruta si hace falta)
-import { supabase } from "../../supabaseClient";
+// RUTAS CORREGIDAS:
+import colors from '../utils/colors';  // Desde app/utils/
+import { supabase } from '../../supabaseClient';
 
-// PANTALLAS
-import CalendarioScreen from "../screens/CalendarioScreen";
-import EstadisticasScreen from "../screens/EstadisticasScreen";
-import InicioScreen from "../screens/InicioScreen";
-import NotasScreen from "../screens/NotasScreen";
-import NuevoPlanScreen from "../screens/NuevoPlanScreen";
-import ReviewScreen from "../screens/ReviewScreen";
-import RuletaScreen from "../screens/RuletaScreen";
-import TimelineScreen from "../screens/TimelineScreen";
-import VinculoScreen from "../screens/VinculoScreen";
+// Pantallas
+import CalendarioScreen from '../screens/CalendarioScreen';
+import EstadisticasScreen from '../screens/EstadisticasScreen';
+import InicioScreen from '../screens/InicioScreen';
+import NotasScreen from '../screens/NotasScreen';
+import NuevoPlanScreen from '../screens/NuevoPlanScreen';
+import ReviewScreen from '../screens/ReviewScreen';
+import RazonesScreen from '../screens/RazonesScreen';
+import DesafiosScreen from '../screens/DesafiosScreen';
+import MoodTrackerScreen from '../screens/MoodTrackerScreen';
 
-import colors from "../utils/colors";
+// CORRECCIÓN: Importar las pantallas que faltaban para el renderScreen
+import RuletaScreen from '../screens/RuletaScreen';
+import VinculoScreen from '../screens/VinculoScreen';
+import TimelineScreen from '../screens/TimelineScreen';
+import AvatarScreen from '../screens/AvatarScreen';
 
-// SUBIR FOTO A SUPABASE
+// Hooks personalizados - RUTAS CORREGIDAS:
+import { useAppState } from '../hooks/useAppState';
+import { usePlanes } from '../hooks/usePlanes';
+import { useRazones } from '../hooks/useRazones';
+import { useMoodTracker } from '../hooks/useMoodTracker';
+import { useNotas } from '../hooks/useNotas';
+import { useDesafios } from '../hooks/useDesafios';
+
+// Función para subir fotos
 async function uploadPhotoToSupabase(uri: string, coupleId: string) {
   try {
     const response = await fetch(uri);
@@ -50,616 +62,556 @@ async function uploadPhotoToSupabase(uri: string, coupleId: string) {
 }
 
 export default function Index() {
-  // ESTADOS GLOBALES
-  const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<
-    | "vinculo"
-    | "inicio"
-    | "ruleta"
-    | "nuevo"
-    | "calendario"
-    | "review"
-    | "notas"
-    | "estadisticas"
-    | "timeline"
-  >("vinculo");
+  // Hook para estado principal de la app
+  const {
+    loading,
+    view,
+    coupleId,
+    fechaAniversario,
+    toast,
+    setView,
+    setCoupleId,
+    crearPareja,
+    mostrarToast,
+  } = useAppState();
 
-  const [coupleId, setCoupleId] = useState<string | null>(null);
-  const [planes, setPlanes] = useState<any[]>([]);
-  const [planesPorDia, setPlanesPorDia] = useState<any>({});
-  const [fechaSeleccionada, setFechaSeleccionada] = useState<string | null>(
-    null
-  );
+  // Estados adicionales
+  const [contenidoCompleto, setContenidoCompleto] = useState<any>(null);
+  const [scannerActive, setScannerActive] = useState(false);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [codigoManual, setCodigoManual] = useState('');
 
-  const [intentosRuleta, setIntentosRuleta] = useState(0);
-  const [planActual, setPlanActual] = useState<any | null>(null);
+  // Hooks para funcionalidades específicas
+  const planesHook = usePlanes(coupleId);
+  const razonesHook = useRazones(coupleId);
+// En tu index.tsx, cambia la línea de moodHook por esta:
+// Busca esto y déjalo EXACTAMENTE así:
+const moodHook = useMoodTracker(
+  coupleId, 
+  contenidoCompleto?.moodHoy, 
+  contenidoCompleto?.historialMoods
+);
+  const notasHook = useNotas(coupleId);
+  const desafiosHook = useDesafios(coupleId);
 
+  // Estados para formularios
   const [titulo, setTitulo] = useState("");
   const [precio, setPrecio] = useState("");
   const [duracion, setDuracion] = useState("");
   const [categoria, setCategoria] = useState("");
-
-  const [codigoManual, setCodigoManual] = useState("");
   const [editando, setEditando] = useState(false);
   const [planEditandoId, setPlanEditandoId] = useState(null);
-
-  const [hasCameraPermission, setHasCameraPermission] =
-    useState<boolean | null>(null);
-  const [scannerActive, setScannerActive] = useState(false);
-
-  const [notas, setNotas] = useState<any[]>([]);
-
-  // Toast simple para feedback visual
-  const [toast, setToast] = useState<{ text: string; visible: boolean }>({
-    text: "",
-    visible: false,
-  });
-
-  const mostrarToast = (text: string) => {
-    console.log("mostrarToast:", text);
-    setToast({ text, visible: true });
-    setTimeout(() => setToast((t) => ({ ...t, visible: false })), 3000);
-  };
-
   const [notaTexto, setNotaTexto] = useState("");
-  const [notaCategoria] = useState("General");
+  const [fechaSeleccionada, setFechaSeleccionada] = useState<string | null>(null);
 
-  const [stats, setStats] = useState<any>({
-    totalPlanes: 0,
-    categorias: {},
-    diasConPlanes: 0,
-    totalFotos: 0,
-    totalDuracion: 0,
-  });
-
-  // FUNCIONES DE PERSISTENCIA
-
-  // guardarPlanesPorDia: actualiza local y persiste; devuelve promesa
-  const guardarPlanesPorDia = async (fecha: string, nuevaLista: any[], coupleIdParam?: string) => {
-    const id = coupleIdParam ?? coupleId;
-    if (!id) {
-      console.warn("guardarPlanesPorDia: no coupleId");
-      return;
-    }
-
-    const nuevosPlanesPorDia = { ...planesPorDia };
-    if (!nuevaLista || nuevaLista.length === 0) {
-      delete nuevosPlanesPorDia[fecha];
-    } else {
-      nuevosPlanesPorDia[fecha] = nuevaLista;
-    }
-
-    // Actualizar estado local inmediatamente
-    setPlanesPorDia(nuevosPlanesPorDia);
-    console.log("guardarPlanesPorDia: local actualizado", Object.keys(nuevosPlanesPorDia));
-
-    // Persistir en Supabase y esperar
-    try {
-      console.log("guardarPlanesPorDia: persistiendo...", fecha, nuevaLista?.length ?? 0);
-      await supabase
-        .from("app_state")
-        .update({
-          contenido: {
-            planes,
-            planesPorDia: nuevosPlanesPorDia,
-            notas,
-          },
-        })
-        .eq("id", id);
-      console.log("guardarPlanesPorDia: persistencia OK");
-    } catch (err) {
-      console.error("guardarPlanesPorDia: error persistiendo", err);
-      throw err;
-    }
-  };
-
-  const guardarNotas = async (nuevasNotas: any[], coupleIdParam?: string) => {
-    const id = coupleIdParam ?? coupleId;
-    if (!id) return;
-
-    setNotas(nuevasNotas);
-
-    try {
-      await supabase
-        .from("app_state")
-        .update({
-          contenido: {
-            planes,
-            planesPorDia,
-            notas: nuevasNotas,
-          },
-        })
-        .eq("id", id);
-    } catch (err) {
-      console.error("Error guardando notas:", err);
-    }
-  };
-
-  const guardarNuevoPlan = async (nuevoPlan: any, coupleIdParam?: string) => {
-    const id = coupleIdParam ?? coupleId;
-    if (!id) return;
-
-    const nuevos = [nuevoPlan, ...planes];
-    setPlanes(nuevos);
-
-    try {
-      await supabase
-        .from("app_state")
-        .update({
-          contenido: {
-            planes: nuevos,
-            planesPorDia,
-            notas,
-          },
-        })
-        .eq("id", id);
-    } catch (err) {
-      console.error("Error guardando nuevo plan:", err);
-    }
-  };
-
-  // eliminarPlanEnFecha (async) — función reutilizable
-  const eliminarPlanEnFecha = async (indexEnDia: number) => {
-    console.log("Index: eliminarPlanEnFecha llamado", indexEnDia, "fecha:", fechaSeleccionada);
-    if (!fechaSeleccionada) {
-      console.warn("Index: eliminarPlanEnFecha sin fechaSeleccionada");
-      return;
-    }
-
-    const lista = planesPorDia[fechaSeleccionada] || [];
-    const nuevaLista = lista.filter((_, idx) => idx !== indexEnDia);
-
-    try {
-      await guardarPlanesPorDia(fechaSeleccionada, nuevaLista, coupleId);
-      console.log("Index: persistencia OK");
-    } catch (err) {
-      console.error("Index: error persistiendo en eliminarPlanEnFecha", err);
-      throw err;
-    }
-  };
-
-  // CARGAR ID DE PAREJA
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const savedCoupleId = await AsyncStorage.getItem("couple_id");
-
-        if (savedCoupleId) {
-          setCoupleId(savedCoupleId);
-          setView("inicio");
-        } else {
-          setView("vinculo");
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    init();
-  }, []);
-
-  // CARGAR ESTADO DESDE SUPABASE
+  // Cargar contenido desde Supabase
   useEffect(() => {
     if (!coupleId) return;
 
-    const cargar = async () => {
+    const cargarContenido = async () => {
       const { data } = await supabase
-        .from("app_state")
-        .select("contenido")
-        .eq("id", coupleId)
+        .from('app_state')
+        .select('contenido')
+        .eq('id', coupleId)
         .single();
 
       if (data?.contenido) {
-        setPlanes(data.contenido.planes || []);
-        setPlanesPorDia(data.contenido.planesPorDia || {});
-        setNotas(data.contenido.notas || []);
+        setContenidoCompleto(data.contenido);
+        
+        // Inicializar hooks con datos cargados
+        planesHook.setPlanes(data.contenido.planes || []);
+        planesHook.setPlanesPorDia(data.contenido.planesPorDia || {});
+        razonesHook.setRazones(data.contenido.razones || []);
+        razonesHook.setRazonDelDia(data.contenido.razonDelDia || null);
+        moodHook.setHistorialMoods(data.contenido.historialMoods || []);
+        moodHook.setMoodHoy(data.contenido.moodHoy || {});
+        notasHook.setNotas(data.contenido.notas || []);
+        desafiosHook.setDesafioActual(data.contenido.desafioActual || null);
+        desafiosHook.setProgresoDesafio(data.contenido.progresoDesafio || 0);
       } else {
+        // Si no existe, crear registro vacío
         await supabase.from("app_state").upsert({
           id: coupleId,
-          contenido: { planes: [], planesPorDia: {}, notas: [] },
+          contenido: {
+            planes: [],
+            planesPorDia: {},
+            notas: [],
+            avatarUrl: null,
+            fechaAniversario: null,
+            razones: [],
+            desafioActual: null,
+            progresoDesafio: 0,
+            historialMoods: [],
+            moodHoy: {},
+          },
         });
       }
     };
 
-    cargar();
+    cargarContenido();
   }, [coupleId]);
 
-  // SINCRONIZACIÓN EN TIEMPO REAL
+  // Sincronización en tiempo real con Supabase
   useEffect(() => {
     if (!coupleId) return;
 
     const channel = supabase
       .channel(`app_state_${coupleId}`)
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "*",
-          schema: "public",
-          table: "app_state",
+          event: '*',
+          schema: 'public',
+          table: 'app_state',
           filter: `id=eq.${coupleId}`,
         },
         (payload) => {
-          const contenido = (payload.new as any)?.contenido;
-          if (contenido) {
-            setPlanes(contenido.planes || []);
-            setPlanesPorDia(contenido.planesPorDia || {});
-            setNotas(contenido.notas || []);
+          if (payload.new?.contenido) {
+            setContenidoCompleto(payload.new.contenido);
+            // Actualizar hooks con nuevos datos
+            planesHook.setPlanes(payload.new.contenido.planes || []);
+            planesHook.setPlanesPorDia(payload.new.contenido.planesPorDia || {});
+            razonesHook.setRazones(payload.new.contenido.razones || []);
+            razonesHook.setRazonDelDia(payload.new.contenido.razonDelDia || null);
+            moodHook.setHistorialMoods(payload.new.contenido.historialMoods || []);
+            moodHook.setMoodHoy(payload.new.contenido.moodHoy || {});
+            notasHook.setNotas(payload.new.contenido.notas || []);
+            desafiosHook.setDesafioActual(payload.new.contenido.desafioActual || null);
+            desafiosHook.setProgresoDesafio(payload.new.contenido.progresoDesafio || 0);
           }
         }
       )
       .subscribe();
 
-    return () => supabase.removeChannel(channel);
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [coupleId]);
 
-  // ESTADÍSTICAS
+  // Función para subir avatar
+  const subirAvatar = async (uri: string) => {
+    if (!coupleId) {
+      mostrarToast("No hay pareja vinculada");
+      return;
+    }
+
+    const url = await uploadPhotoToSupabase(uri, coupleId);
+    if (!url) {
+      mostrarToast("Error al subir foto");
+      return;
+    }
+
+    try {
+      await supabase
+        .from("app_state")
+        .update({
+          contenido: {
+            ...contenidoCompleto,
+            avatarUrl: url,
+          },
+        })
+        .eq("id", coupleId);
+      mostrarToast("Foto actualizada ✨");
+    } catch (err) {
+      console.error("Error guardando avatar:", err);
+    }
+  };
+
+  // Función para manejar escaneo QR
+  const manejarScan = async ({ data }) => {
+    if (!data) return;
+    
+    try {
+      const { data: parejaData } = await supabase
+        .from("app_state")
+        .select("id")
+        .eq("id", data)
+        .single();
+
+      if (parejaData) {
+        setCoupleId(data);
+        await AsyncStorage.setItem("couple_id", data);
+        setScannerActive(false);
+        setView("inicio");
+        mostrarToast("Pareja vinculada exitosamente 💕");
+      } else {
+        mostrarToast("Código inválido");
+      }
+    } catch (error) {
+      mostrarToast("Error al vincular pareja");
+    }
+  };
+
+  // Función para pedir permiso de cámara
+  const pedirPermisoCamara = async () => {
+    const { status } = await BarCodeScanner.requestPermissionsAsync();
+    setHasCameraPermission(status === "granted");
+    if (status === "granted") setScannerActive(true);
+  };
+
+  // Calcular estadísticas
+  const [stats, setStats] = useState({
+    totalPlanes: 0,
+    diasConPlanes: 0,
+    totalFotos: 0,
+  });
+
   useEffect(() => {
-    const categoriasCount: any = {};
+    const totalPlanes = planesHook.planes.length;
+    const diasConPlanes = Object.keys(planesHook.planesPorDia).length;
+
     let totalFotos = 0;
-    let totalDuracion = 0;
-    let diasConPlanes = 0;
-
-    Object.keys(planesPorDia).forEach((dia) => {
-      const lista = planesPorDia[dia] || [];
-      if (lista.length > 0) diasConPlanes++;
-
-      lista.forEach((p) => {
-        if (p.fotos) totalFotos += p.fotos.length;
-        if (p.duracion) totalDuracion += Number(p.duracion);
-
-        const planInfo = planes.find((pl) => pl.id === p.planId);
-        if (planInfo?.categoria) {
-          categoriasCount[planInfo.categoria] =
-            (categoriasCount[planInfo.categoria] || 0) + 1;
-        }
+    Object.values(planesHook.planesPorDia).forEach((lista: any) => {
+      lista.forEach((plan: any) => {
+        totalFotos += (plan.fotos || []).length;
       });
     });
 
     setStats({
-      totalPlanes: planes.length,
-      categorias: categoriasCount,
+      totalPlanes,
       diasConPlanes,
       totalFotos,
-      totalDuracion,
     });
-  }, [planes, planesPorDia]);
+  }, [planesHook.planes, planesHook.planesPorDia]);
 
-  // PERMISOS NOTIFICACIONES
-  useEffect(() => {
-    Notifications.requestPermissionsAsync().catch(() => {});
-  }, []);
-
-  // LOADING
   if (loading) {
     return (
-      <LinearGradient
-        colors={[colors.bgTop, colors.bgBottom]}
-        style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-      >
-        <ActivityIndicator size="large" color={colors.accent} />
-      </LinearGradient>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
     );
   }
 
-  // PLANES USADOS
-  const planesUsados: any[] = [];
-  Object.keys(planesPorDia).forEach((dia) => {
-    const lista = planesPorDia[dia] || [];
-    lista.forEach((p) => {
-      planesUsados.push(p);
-    });
-  });
+  // Renderizar pantalla actual
+  const renderScreen = () => {
+    switch (view) {
+      case 'vinculo':
+        return (
+          <VinculoScreen
+            setView={setView}
+            coupleId={coupleId}
+            setCoupleId={setCoupleId}
+            scannerActive={scannerActive}
+            hasCameraPermission={hasCameraPermission}
+            codigoManual={codigoManual}
+            setCodigoManual={setCodigoManual}
+            pedirPermisoCamara={pedirPermisoCamara}
+            crearPareja={crearPareja}
+            manejarScan={manejarScan}
+            mostrarToast={mostrarToast}
+          />
+        );
 
-  const usadosQueSiguen = planesUsados
-    .filter((p) => p.seguirEnRuleta)
-    .map((p) => p.planId);
+      case 'inicio':
+        return (
+          <InicioScreen
+            setView={setView}
+            coupleId={coupleId}
+            fechaAniversario={fechaAniversario}
+            razonDelDia={razonesHook.razonDelDia}
+            avatarUrl={contenidoCompleto?.avatarUrl}
+          />
+        );
 
-  const noUsados = planes.filter(
-    (p) => !planesUsados.some((u) => u.planId === p.id)
-  );
+      case 'razones':
+        return (
+          <RazonesScreen
+            setView={setView}
+            razones={razonesHook.razones}
+            agregarRazon={razonesHook.agregarRazon}
+            eliminarRazon={razonesHook.eliminarRazon}
+            editarRazon={razonesHook.editarRazon}
+            razonDelDia={razonesHook.razonDelDia}
+          />
+        );
 
-  const usadosPermitidos = planes.filter((p) =>
-    usadosQueSiguen.includes(p.id)
-  );
+      case 'mood':
+        return (
+          <MoodTrackerScreen
+            setView={setView}
+            registrarMood={moodHook.registrarMood}
+            historialMoods={moodHook.historialMoods}
+            moodHoy={moodHook.moodHoy}
+            eliminarMood={moodHook.eliminarMood}
+            cambiarMoodHoy={moodHook.cambiarMoodHoy}
+          />
+        );
 
-  const planesDisponibles = [...noUsados, ...usadosPermitidos];
+      case 'ruleta':
+        return (
+          <RuletaScreen
+            setView={setView}
+            planes={planesHook.planes.filter(p => !p.completado)}
+            planActual={planesHook.planActual}
+            girar={() => {
+              const resultado = planesHook.girarRuleta();
+              if (!resultado) {
+                Alert.alert("Sin planes", "No hay planes disponibles. Crea algunos primero.");
+              }
+            }}
+            intentosRuleta={planesHook.intentosRuleta}
+          />
+        );
 
-  // NAVEGACIÓN ENTRE PANTALLAS
-  return (
-    <View style={{ flex: 1 }}>
-      {/* VÍNCULO */}
-      {view === "vinculo" && (
-        <VinculoScreen
-          setView={setView}
-          coupleId={coupleId}
-          setCoupleId={setCoupleId}
-          scannerActive={scannerActive}
-          hasCameraPermission={hasCameraPermission}
-          codigoManual={codigoManual}
-          setCodigoManual={setCodigoManual}
-          pedirPermisoCamara={async () => {
-            const { status } = await BarCodeScanner.requestPermissionsAsync();
-            setHasCameraPermission(status === "granted");
-            if (status === "granted") setScannerActive(true);
-          }}
-          crearPareja={async () => {
-            const id = Math.random().toString(36).substring(2, 10);
-            setCoupleId(id);
-            await AsyncStorage.setItem("couple_id", id);
-            await supabase.from("app_state").upsert({
-              id,
-              contenido: { planes: [], planesPorDia: {}, notas: [] },
-            });
-            setView("inicio");
-          }}
-          manejarScan={async ({ data }) => {
-            if (!data) return;
-            setCoupleId(data);
-            await AsyncStorage.setItem("couple_id", data);
-            setScannerActive(false);
-            setView("inicio");
-          }}
-        />
-      )}
+      case 'nuevo':
+        return (
+          <NuevoPlanScreen
+            setView={setView}
+            planes={planesHook.planes}
+            setPlanes={planesHook.setPlanes}
+            titulo={titulo}
+            setTitulo={setTitulo}
+            precio={precio}
+            setPrecio={setPrecio}
+            duracion={duracion}
+            setDuracion={setDuracion}
+            categoria={categoria}
+            setCategoria={setCategoria}
+            editando={editando}
+            setEditando={setEditando}
+            planEditandoId={planEditandoId}
+            setPlanEditandoId={setPlanEditandoId}
+            guardarNuevoPlan={planesHook.agregarPlan}
+            coupleId={coupleId}
+            planesPorDia={planesHook.planesPorDia}
+            notas={notasHook.notas}
+            setPlanActual={planesHook.setPlanActual}
+            setIntentosRuleta={planesHook.setIntentosRuleta}
+          />
+        );
 
-      {/* INICIO */}
-      {view === "inicio" && (
-        <InicioScreen setView={setView} coupleId={coupleId} />
-      )}
-
-      {/* RULETA */}
-      {view === "ruleta" && (
-        <RuletaScreen
-          setView={setView}
-          planes={planesDisponibles}
-          planActual={planActual}
-          girar={() => {
-            if (planesDisponibles.length === 0) {
-              alert("No hay planes disponibles");
-              return;
-            }
-
-            const random =
-              planesDisponibles[
-                Math.floor(Math.random() * planesDisponibles.length)
-              ];
-
-            setPlanActual(random);
-            setIntentosRuleta((prev) => prev + 1);
-          }}
-          intentosRuleta={intentosRuleta}
-        />
-      )}
-
-      {/* NUEVO PLAN */}
-      {view === "nuevo" && (
-        <NuevoPlanScreen
-          setView={setView}
-          planes={planes}
-          setPlanes={setPlanes}
-          titulo={titulo}
-          setTitulo={setTitulo}
-          precio={precio}
-          setPrecio={setPrecio}
-          duracion={duracion}
-          setDuracion={setDuracion}
-          categoria={categoria}
-          setCategoria={setCategoria}
-          editando={editando}
-          setEditando={setEditando}
-          planEditandoId={planEditandoId}
-          setPlanEditandoId={setPlanEditandoId}
-          guardarNuevoPlan={guardarNuevoPlan}
-          coupleId={coupleId}
-          planesPorDia={planesPorDia}
-          notas={notas}
-          setPlanActual={setPlanActual}
-          setIntentosRuleta={setIntentosRuleta}
-        />
-      )}
-
-      {/* CALENDARIO */}
-      {view === "calendario" && (
-        <CalendarioScreen
-          setView={setView}
-          markedDates={(() => {
-            const marked: any = {};
-            Object.keys(planesPorDia).forEach((dia) => {
-              marked[dia] = { marked: true, dotColor: colors.primary };
-            });
-            return marked;
-          })()}
-          onDayPress={(day) => {
-            const fecha = day.dateString;
-
-            if (planActual) {
-              const nuevosPlanesDelDia = [
-                ...(planesPorDia[fecha] || []),
-                {
-                  planId: planActual.id,
-                  fotos: [],
-                  opinion: "",
-                  puntaje: 0,
-                  precio: planActual.precio || null,
-                  duracion: planActual.duracion || null,
-                  completado: false,
-                  seguirEnRuleta: true,
-                },
-              ];
-
-              setPlanesPorDia({
-                ...planesPorDia,
-                [fecha]: nuevosPlanesDelDia,
+      case 'calendario':
+        return (
+          <CalendarioScreen
+            setView={setView}
+            markedDates={(() => {
+              const marked: any = {};
+              Object.keys(planesHook.planesPorDia).forEach((dia) => {
+                marked[dia] = { marked: true, dotColor: colors.primary };
               });
+              return marked;
+            })()}
+            onDayPress={(day) => {
+              const fecha = day.dateString;
 
-              guardarPlanesPorDia(fecha, nuevosPlanesDelDia, coupleId);
+              if (planesHook.planActual) {
+                const nuevosPlanesDelDia = [
+                  ...(planesHook.planesPorDia[fecha] || []),
+                  {
+                    planId: planesHook.planActual.id,
+                    fotos: [],
+                    opinion: "",
+                    puntaje: 0,
+                    precio: planesHook.planActual.precio || null,
+                    duracion: planesHook.planActual.duracion || null,
+                    completado: false,
+                    seguirEnRuleta: true,
+                  },
+                ];
 
-              setPlanActual(null);
-              setIntentosRuleta(0);
-              setView("inicio");
-              return;
-            }
+                planesHook.guardarPlanesPorDia(fecha, nuevosPlanesDelDia);
 
-            if ((planesPorDia[fecha] || []).length > 0) {
-              setFechaSeleccionada(fecha);
-              setView("review");
-            }
-          }}
-        />
-      )}
+                planesHook.setPlanActual(null);
+                planesHook.setIntentosRuleta(0);
+                setView("inicio");
+                return;
+              }
 
-      {/* REVIEW */}
-      {view === "review" && fechaSeleccionada && (
-        <ReviewScreen
-          setView={setView}
-          fechaSeleccionada={fechaSeleccionada}
-          lista={planesPorDia[fechaSeleccionada] || []}
-          actualizarPlan={(index, cambios) => {
-            const lista = planesPorDia[fechaSeleccionada] || [];
-            const nuevaLista = [...lista];
-            nuevaLista[index] = { ...nuevaLista[index], ...cambios };
+              // Si el día YA tiene planes, ir a REVIEW
+              if ((planesHook.planesPorDia[fecha] || []).length > 0) {
+                setFechaSeleccionada(fecha);
+                setView("review");
+              } else {
+                // Si el día NO tiene planes, mostrar opción
+                Alert.alert(
+                  "Día sin planes",
+                  "Este día no tiene planes asignados. ¿Quieres agregar uno desde la ruleta?",
+                  [
+                    { text: "Cancelar", style: "cancel" },
+                    {
+                      text: "Ir a ruleta",
+                      onPress: () => {
+                        setFechaSeleccionada(fecha);
+                        setView("ruleta");
+                      },
+                    },
+                  ]
+                );
+              }
+            }}
+          />
+        );
 
-            setPlanesPorDia({
-              ...planesPorDia,
-              [fechaSeleccionada]: nuevaLista,
-            });
-
-            guardarPlanesPorDia(fechaSeleccionada, nuevaLista, coupleId);
-          }}
-          subirFoto={async (index) => {
-            const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              quality: 0.7,
-            });
-
-            if (!result.canceled && result.assets?.[0]?.uri) {
-              const url = await uploadPhotoToSupabase(
-                result.assets[0].uri,
-                coupleId
-              );
-              if (!url) return;
-
-              const lista = planesPorDia[fechaSeleccionada] || [];
-              const nuevasFotos = [...(lista[index].fotos || []), url];
-
+      case 'review':
+        return fechaSeleccionada && (
+          <ReviewScreen
+            setView={setView}
+            fechaSeleccionada={fechaSeleccionada}
+            lista={planesHook.planesPorDia[fechaSeleccionada] || []}
+            actualizarPlan={(index, cambios) => {
+              const lista = planesHook.planesPorDia[fechaSeleccionada] || [];
               const nuevaLista = [...lista];
-              nuevaLista[index] = { ...nuevaLista[index], fotos: nuevasFotos };
+              nuevaLista[index] = { ...nuevaLista[index], ...cambios };
 
-              setPlanesPorDia({
-                ...planesPorDia,
-                [fechaSeleccionada]: nuevaLista,
+              planesHook.guardarPlanesPorDia(fechaSeleccionada, nuevaLista);
+            }}
+            subirFoto={async (index) => {
+              const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                quality: 0.7,
               });
 
-              guardarPlanesPorDia(fechaSeleccionada, nuevaLista, coupleId);
-            }
-          }}
-          planes={planes}
-          setPlanes={setPlanes}
-          coupleId={coupleId}
-          planesPorDia={planesPorDia}
-          notas={notas}
-          eliminarPlanEnFecha={eliminarPlanEnFecha}
-          mostrarToast={mostrarToast}
-        />
-      )}
+              if (!result.canceled && result.assets?.[0]?.uri) {
+                const url = await uploadPhotoToSupabase(
+                  result.assets[0].uri,
+                  coupleId
+                );
+                if (!url) return;
 
-      {/* NOTAS */}
-      {view === "notas" && (
-        <NotasScreen
-          setView={setView}
-          notaTexto={notaTexto}
-          setNotaTexto={setNotaTexto}
-          notas={notas}
-          guardarNota={async () => {
-            if (!notaTexto.trim()) return;
+                const lista = planesHook.planesPorDia[fechaSeleccionada] || [];
+                const nuevasFotos = [...(lista[index].fotos || []), url];
 
-            const nuevaNota = {
-              id: Date.now().toString(),
-              texto: notaTexto.trim(),
-              categoria: notaCategoria,
-              fecha: new Date().toISOString(),
-            };
+                const nuevaLista = [...lista];
+                nuevaLista[index] = { ...nuevaLista[index], fotos: nuevasFotos };
 
-            const nuevas = [nuevaNota, ...notas];
-            setNotas(nuevas);
-            setNotaTexto("");
+                planesHook.guardarPlanesPorDia(fechaSeleccionada, nuevaLista);
+              }
+            }}
+            planes={planesHook.planes}
+            eliminarPlanEnFecha={async (indexEnDia) => {
+              const lista = planesHook.planesPorDia[fechaSeleccionada] || [];
+              const nuevaLista = lista.filter((_, idx) => idx !== indexEnDia);
+              await planesHook.guardarPlanesPorDia(fechaSeleccionada, nuevaLista);
+              mostrarToast("Plan eliminado");
+            }}
+            mostrarToast={mostrarToast}
+          />
+        );
 
-            await guardarNotas(nuevas, coupleId);
-          }}
-        />
-      )}
+      case 'notas':
+        return (
+          <NotasScreen
+            setView={setView}
+            notaTexto={notaTexto}
+            setNotaTexto={setNotaTexto}
+            notas={notasHook.notas}
+            guardarNota={notasHook.agregarNota}
+            eliminarNota={notasHook.eliminarNota}
+            editarNota={notasHook.editarNota}
+          />
+        );
 
-      {/* ESTADÍSTICAS */}
-      {view === "estadisticas" && (
-        <EstadisticasScreen setView={setView} stats={stats} />
-      )}
+      case 'estadisticas':
+        return (
+          <EstadisticasScreen 
+            setView={setView} 
+            stats={stats} 
+          />
+        );
 
-      {/* TIMELINE */}
-      {view === "timeline" && (
-        <TimelineScreen
-          setView={setView}
-          eventos={(() => {
-            const eventos: any[] = [];
-            Object.keys(planesPorDia).forEach((fecha) => {
-              const lista = planesPorDia[fecha] || [];
-              lista.forEach((p) => {
-                const planInfo = planes.find((pl) => pl.id === p.planId);
-                eventos.push({
-                  fecha,
-                  titulo: planInfo?.titulo,
-                  opinion: p.opinion,
-                  puntaje: p.puntaje,
-                  fotos: p.fotos || [],
+      case 'timeline':
+        return (
+          <TimelineScreen
+            setView={setView}
+            eventos={(() => {
+              const eventos: any[] = [];
+              Object.keys(planesHook.planesPorDia).forEach((fecha) => {
+                const lista = planesHook.planesPorDia[fecha] || [];
+                lista.forEach((p) => {
+                  const planInfo = planesHook.planes.find((pl) => pl.id === p.planId);
+                  eventos.push({
+                    fecha,
+                    titulo: planInfo?.titulo,
+                    opinion: p.opinion,
+                    puntaje: p.puntaje,
+                    fotos: p.fotos || [],
+                  });
                 });
               });
-            });
-            eventos.sort(
-              (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
-            );
-            return eventos;
-          })()}
-        />
-      )}
+              eventos.sort(
+                (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+              );
+              return eventos;
+            })()}
+          />
+        );
 
-      {/* BOTÓN FLOTANTE DE ESTADÍSTICAS */}
-      <TouchableOpacity
-        onPress={() => setView("estadisticas")}
-        style={{
-          position: "absolute",
-          bottom: 20,
-          left: 20,
-          backgroundColor: colors.primary,
-          width: 50,
-          height: 50,
-          borderRadius: 12,
-          justifyContent: "center",
-          alignItems: "center",
-          shadowColor: "#000",
-          shadowOpacity: 0.2,
-          shadowRadius: 6,
-          elevation: 5,
-        }}
-      >
-        <Text style={{ fontSize: 24, color: "white" }}>📊</Text>
-      </TouchableOpacity>
+      case 'avatar':
+        return (
+          <AvatarScreen
+            setView={setView}
+            avatarUrl={contenidoCompleto?.avatarUrl}
+            subirAvatar={subirAvatar}
+          />
+        );
+
+      case 'desafios':
+        return (
+          <DesafiosScreen
+            setView={setView}
+            desafioActual={desafiosHook.desafioActual}
+            progreso={desafiosHook.progresoDesafio}
+            completarDesafio={desafiosHook.completarDesafio}
+            generarNuevoDesafio={desafiosHook.generarNuevoDesafio}
+          />
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <View style={{ flex: 1 }}>
+      {renderScreen()}
+
+      {/* Botón flotante de estadísticas */}
+      {view !== 'estadisticas' && view !== 'vinculo' && (
+        <TouchableOpacity
+          onPress={() => setView("estadisticas")}
+          style={{
+            position: "absolute",
+            bottom: 20,
+            left: 20,
+            backgroundColor: colors.primary,
+            width: 50,
+            height: 50,
+            borderRadius: 12,
+            justifyContent: "center",
+            alignItems: "center",
+            shadowColor: "#000",
+            shadowOpacity: 0.2,
+            shadowRadius: 6,
+            elevation: 5,
+            borderWidth: 2,
+            borderColor: "#FFB3D1",
+            zIndex: 100,
+          }}
+        >
+          <Text style={{ fontSize: 24, color: "white" }}>📊</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Toast simple */}
       {toast.visible && (
         <View
           style={{
-            position: "absolute",
+            position: 'absolute',
             bottom: 20,
             left: 20,
             right: 20,
-            backgroundColor: "rgba(0,0,0,0.8)",
+            backgroundColor: 'rgba(0,0,0,0.8)',
             paddingVertical: 10,
             paddingHorizontal: 14,
             borderRadius: 12,
-            alignItems: "center",
-            justifyContent: "center",
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderColor: colors.primary,
+            zIndex: 1000,
           }}
         >
-          <Text style={{ color: "#fff", fontWeight: "700" }}>{toast.text}</Text>
+          <Text style={{ color: '#fff', fontWeight: '700' }}>{toast.text}</Text>
         </View>
       )}
     </View>
