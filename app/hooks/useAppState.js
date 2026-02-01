@@ -56,6 +56,9 @@ export const useAppState = () => {
         progresoDesafio: 0,
         historialMoods: [],
         moodHoy: {},
+        logros: [],
+        puntos: 0,
+        logrosDesbloqueados: [],
       };
 
       // Usamos .insert() en lugar de .upsert() por seguridad

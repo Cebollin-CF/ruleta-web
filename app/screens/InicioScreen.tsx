@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { Text, View, TouchableOpacity, Image, ScrollView } from "react-native";
 import Container from "../components/Container";
 import colors from "../utils/colors";
-import { MotiView } from "moti";
 
 export default function InicioScreen({
   setView,
@@ -10,6 +9,7 @@ export default function InicioScreen({
   avatarUrl,
   fechaAniversario,
   razonDelDia,
+  puntos = 0, // ✅ AÑADIDO ESTE PROP
 }) {
   const [diasJuntos, setDiasJuntos] = useState(0);
   const [confeti, setConfeti] = useState(false);
@@ -33,11 +33,7 @@ export default function InicioScreen({
     <Container>
       {/* Confeti animado */}
       {confeti && (
-        <MotiView
-          from={{ opacity: 0, translateY: -50 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          exit={{ opacity: 0 }}
-          transition={{ type: "timing", duration: 2000 }}
+        <View
           style={{
             position: "absolute",
             top: 50,
@@ -48,7 +44,7 @@ export default function InicioScreen({
           }}
         >
           <Text style={{ fontSize: 100 }}>🎉</Text>
-        </MotiView>
+        </View>
       )}
 
       <ScrollView 
@@ -56,12 +52,7 @@ export default function InicioScreen({
         showsVerticalScrollIndicator={false}
       >
         {/* AVATAR DE PAREJA */}
-        <MotiView
-          from={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring", duration: 600 }}
-          style={{ alignItems: "center", marginBottom: 20, marginTop: 10 }}
-        >
+        <View style={{ alignItems: "center", marginBottom: 20, marginTop: 10 }}>
           <TouchableOpacity onPress={() => setView("avatar")}>
             {avatarUrl ? (
               <View>
@@ -75,19 +66,6 @@ export default function InicioScreen({
                     borderColor: colors.primary,
                   }}
                 />
-                {/* Corazones flotantes al tocar */}
-                <MotiView
-                  from={{ opacity: 0, translateY: 0 }}
-                  animate={{ opacity: [0, 1, 0], translateY: -30 }}
-                  transition={{
-                    loop: true,
-                    type: "timing",
-                    duration: 2000,
-                  }}
-                  style={{ position: "absolute", top: -10, right: -10 }}
-                >
-                  <Text style={{ fontSize: 24 }}>💕</Text>
-                </MotiView>
               </View>
             ) : (
               <View
@@ -122,12 +100,12 @@ export default function InicioScreen({
               Lleváis juntos {diasJuntos} días 💕
             </Text>
           )}
-        </MotiView>
+        </View>
 
         {/* RAZÓN DEL DÍA */}
         {razonDelDia && (
           <View style={{
-              backgroundColor: colors.primary, // ✅ CON {{ y }}
+              backgroundColor: colors.primary,
               padding: 16,
               borderRadius: 20,
               marginBottom: 20,
@@ -144,11 +122,7 @@ export default function InicioScreen({
         )}
 
         {/* TÍTULO */}
-        <MotiView
-          from={{ opacity: 0, translateY: -20 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: "timing", duration: 500 }}
-        >
+        <View>
           <Text
             style={{
               color: colors.accent,
@@ -163,7 +137,7 @@ export default function InicioScreen({
           >
             💕 PLANES V x A 💕
           </Text>
-        </MotiView>
+        </View>
 
         {/* SUBTÍTULO */}
         <Text
@@ -178,36 +152,30 @@ export default function InicioScreen({
         </Text>
 
         {/* BOTÓN PRINCIPAL - ESTILO ESPECIAL */}
-        <MotiView
-          from={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring", duration: 800 }}
+        <TouchableOpacity
+          onPress={() => setView("ruleta")}
+          style={{
+            backgroundColor: colors.primary,
+            paddingVertical: 18,
+            paddingHorizontal: 30,
+            borderRadius: 25,
+            alignItems: "center",
+            marginBottom: 20,
+            borderWidth: 3,
+            borderColor: "#FFB3D1",
+            shadowColor: colors.primary,
+            shadowOpacity: 0.5,
+            shadowRadius: 15,
+            elevation: 8,
+          }}
         >
-          <TouchableOpacity
-            onPress={() => setView("ruleta")}
-            style={{
-              backgroundColor: colors.primary,
-              paddingVertical: 18,
-              paddingHorizontal: 30,
-              borderRadius: 25,
-              alignItems: "center",
-              marginBottom: 20,
-              borderWidth: 3,
-              borderColor: "#FFB3D1",
-              shadowColor: colors.primary,
-              shadowOpacity: 0.5,
-              shadowRadius: 15,
-              elevation: 8,
-            }}
-          >
-            <Text style={{ color: "#fff", fontSize: 24, fontWeight: "900" }}>
-              🎡 ELEGIR PLAN
-            </Text>
-            <Text style={{ color: "rgba(255,255,255,0.9)", fontSize: 12, marginTop: 4 }}>
-              Gira la ruleta y sorpréndete
-            </Text>
-          </TouchableOpacity>
-        </MotiView>
+          <Text style={{ color: "#fff", fontSize: 24, fontWeight: "900" }}>
+            🎡 ELEGIR PLAN
+          </Text>
+          <Text style={{ color: "rgba(255,255,255,0.9)", fontSize: 12, marginTop: 4 }}>
+            Gira la ruleta y sorpréndete
+          </Text>
+        </TouchableOpacity>
 
         {/* BOTONES FILA 1: NUEVO + CALENDARIO - ESTILO TARJETA */}
         <View style={{ flexDirection: "row", marginTop: 10, gap: 10 }}>
@@ -319,7 +287,7 @@ export default function InicioScreen({
           </TouchableOpacity>
         </View>
 
-        {/* BOTONES FILA 3: RAZONES + DESAFÍOS - ESTILO TARJETA */}
+        {/* BOTONES FILA 3: RAZONES + DESAFÍOS + LOGROS - ESTILO TARJETA */}
         <View style={{ flexDirection: "row", marginTop: 12, gap: 10 }}>
           <TouchableOpacity
             onPress={() => setView("razones")}
@@ -373,6 +341,33 @@ export default function InicioScreen({
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* BOTÓN LOGROS - NUEVO */}
+        <TouchableOpacity
+          onPress={() => setView("logros")}
+          style={{
+            marginTop: 12,
+            backgroundColor: `rgba(52, 73, 94, 0.9)`,
+            paddingVertical: 16,
+            paddingHorizontal: 12,
+            borderRadius: 18,
+            alignItems: "center",
+            borderWidth: 2,
+            borderColor: "#5D6D7E",
+            shadowColor: "#34495E",
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 5,
+          }}
+        >
+          <Text style={{ fontSize: 28, marginBottom: 5 }}>🏆</Text>
+          <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14, textAlign: "center" }}>
+            Logros ({puntos} pts)
+          </Text>
+          <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 10, marginTop: 2 }}>
+            Desbloquea insignias
+          </Text>
+        </TouchableOpacity>
 
         {/* BOTÓN MOOD TRACKER - ESTILO ESPECIAL */}
         <TouchableOpacity
@@ -443,6 +438,16 @@ export default function InicioScreen({
               🔗 Gestionar vínculo
             </Text>
           </TouchableOpacity>
+
+          {/* PUNTOS DE LOGROS (extra) */}
+          <Text style={{ 
+            color: colors.warning, 
+            fontSize: 14, 
+            fontWeight: "700", 
+            marginTop: 12 
+          }}>
+            Puntos acumulados: {puntos} 🏆
+          </Text>
         </View>
       </ScrollView>
     </Container>

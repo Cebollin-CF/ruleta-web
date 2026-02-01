@@ -4,6 +4,7 @@ import { View, ActivityIndicator, Text, TouchableOpacity, Alert } from 'react-na
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BarCodeScanner } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+import { Picker } from '@react-native-picker/picker';
 
 // RUTAS CORREGIDAS:
 import colors from '../utils/colors';  // Desde app/utils/
@@ -23,6 +24,7 @@ import RuletaScreen from '../screens/RuletaScreen';
 import VinculoScreen from '../screens/VinculoScreen';
 import TimelineScreen from '../screens/TimelineScreen';
 import AvatarScreen from '../screens/AvatarScreen';
+import LogrosScreen from '../screens/LogrosScreen';
 
 // Hooks personalizados - RUTAS CORREGIDAS:
 import { useAppState } from '../hooks/useAppState';
@@ -31,6 +33,7 @@ import { useRazones } from '../hooks/useRazones';
 import { useMoodTracker } from '../hooks/useMoodTracker';
 import { useNotas } from '../hooks/useNotas';
 import { useDesafios } from '../hooks/useDesafios';
+import { useLogros } from '../hooks/useLogros'; // ✅ AÑADIR ESTA IMPORTACIÓN
 
 // Función para subir fotos
 async function uploadPhotoToSupabase(uri: string, coupleId: string) {
@@ -70,8 +73,9 @@ export default function Index() {
     setView,
     setCoupleId,
     crearPareja,
-    conectarPareja, // <--- SOLO AÑADIDO ESTO
+    conectarPareja,
     mostrarToast,
+    setFechaAniversario,
   } = useAppState();
 
   // Estados adicionales
@@ -90,6 +94,11 @@ export default function Index() {
   );
   const notasHook = useNotas(coupleId);
   const desafiosHook = useDesafios(coupleId);
+  const logrosHook = useLogros(
+  coupleId,
+  contenidoCompleto?.puntos || 0,
+  contenidoCompleto?.logrosDesbloqueados || []
+  );
 
   // Estados para formularios
   const [titulo, setTitulo] = useState("");
@@ -125,6 +134,8 @@ export default function Index() {
         notasHook.setNotas(data.contenido.notas || []);
         desafiosHook.setDesafioActual(data.contenido.desafioActual || null);
         desafiosHook.setProgresoDesafio(data.contenido.progresoDesafio || 0);
+        logrosHook.setLogrosDesbloqueados(data.contenido.logrosDesbloqueados || []);
+        logrosHook.setPuntos(data.contenido.puntos || 0);
       }
     };
 
@@ -158,6 +169,8 @@ export default function Index() {
             notasHook.setNotas(payload.new.contenido.notas || []);
             desafiosHook.setDesafioActual(payload.new.contenido.desafioActual || null);
             desafiosHook.setProgresoDesafio(payload.new.contenido.progresoDesafio || 0);
+            logrosHook.setLogrosDesbloqueados(payload.new.contenido.logrosDesbloqueados || []);
+            logrosHook.setPuntos(payload.new.contenido.puntos || 0);
           }
         }
       )
@@ -239,6 +252,40 @@ export default function Index() {
     });
   }, [planesHook.planes, planesHook.planesPorDia]);
 
+  // Función para actualizar logros automáticamente
+  const actualizarLogrosAutomaticamente = async () => {
+    const diasJuntos = fechaAniversario 
+      ? Math.floor((new Date().getTime() - new Date(fechaAniversario).getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+
+    const datosUsuario = {
+      totalPlanesCompletados: planesHook.planes.filter(p => p.completado).length,
+      diasJuntos: diasJuntos,
+      totalFotos: stats.totalFotos,
+      totalRazones: razonesHook.razones.length,
+      diasConPlanes: stats.diasConPlanes,
+      desafiosCompletados: 0,
+    };
+
+    const resultado = await logrosHook.actualizarLogros(datosUsuario);
+    
+    if (resultado?.nuevosDesbloqueos?.length > 0) {
+      resultado.nuevosDesbloqueos.forEach(logroId => {
+        const logro = logrosHook.logros.find(l => l.id === logroId);
+        if (logro) {
+          mostrarToast(`🏆 ¡Logro desbloqueado: ${logro.titulo}! (+${logro.puntos} pts)`);
+        }
+      });
+    }
+  };
+
+  // Actualizar logros cuando cambien las estadísticas
+  useEffect(() => {
+    if (coupleId && !loading) {
+      actualizarLogrosAutomaticamente();
+    }
+  }, [stats, planesHook.planes, razonesHook.razones]);
+
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -246,7 +293,6 @@ export default function Index() {
       </View>
     );
   }
-
 
   // Renderizar pantalla actual
   const renderScreen = () => {
@@ -263,7 +309,7 @@ export default function Index() {
             setCodigoManual={setCodigoManual}
             pedirPermisoCamara={pedirPermisoCamara}
             crearPareja={crearPareja}
-            conectarPareja={conectarPareja} // <--- PASADO 1:1
+            conectarPareja={conectarPareja}
             manejarScan={manejarScan}
             mostrarToast={mostrarToast}
           />
@@ -277,6 +323,7 @@ export default function Index() {
             fechaAniversario={fechaAniversario}
             razonDelDia={razonesHook.razonDelDia}
             avatarUrl={contenidoCompleto?.avatarUrl}
+            puntos={logrosHook.puntos}
           />
         );
 
@@ -355,7 +402,10 @@ export default function Index() {
             markedDates={(() => {
               const marked: any = {};
               Object.keys(planesHook.planesPorDia).forEach((dia) => {
-                marked[dia] = { marked: true, dotColor: colors.primary };
+                marked[dia] = { 
+                  marked: true, 
+                  dotColor: colors.primary,
+                };
               });
               return marked;
             })()}
@@ -385,12 +435,10 @@ export default function Index() {
                 return;
               }
 
-              // Si el día YA tiene planes, ir a REVIEW
               if ((planesHook.planesPorDia[fecha] || []).length > 0) {
                 setFechaSeleccionada(fecha);
                 setView("review");
               } else {
-                // Si el día NO tiene planes, mostrar opción
                 Alert.alert(
                   "Día sin planes",
                   "Este día no tiene planes asignados. ¿Quieres agregar uno desde la ruleta?",
@@ -407,9 +455,57 @@ export default function Index() {
                 );
               }
             }}
+            fechaAniversario={fechaAniversario}
+            setFechaAniversario={(nuevaFecha) => {
+              // 1. Guardar en estado local (si existe la función)
+              if (typeof setFechaAniversario === 'function') {
+                setFechaAniversario(nuevaFecha);
+              }
+              
+              // 2. Guardar en AsyncStorage SIEMPRE
+              AsyncStorage.setItem('fecha_aniversario', nuevaFecha)
+                .then(() => console.log('Fecha guardada en AsyncStorage:', nuevaFecha))
+                .catch(err => console.error('Error guardando fecha:', err));
+              
+              // 3. Guardar en Supabase SI hay coupleId
+              if (coupleId && contenidoCompleto) {
+                supabase
+                  .from('app_state')
+                  .update({
+                    contenido: {
+                      ...contenidoCompleto,
+                      fechaAniversario: nuevaFecha,
+                    },
+                  })
+                  .eq('id', coupleId)
+                  .then(() => {
+                    mostrarToast("✅ Fecha actualizada en la nube");
+                  })
+                  .catch(error => {
+                    console.error("Error actualizando fecha en Supabase:", error);
+                    mostrarToast("⚠️ Error en la nube, pero guardado localmente");
+                  });
+              }
+              
+              // 4. Mostrar días calculados CORRECTAMENTE
+              try {
+                const inicio = new Date(nuevaFecha);
+                const hoy = new Date();
+                // Asegurar que las fechas estén en el mismo timezone
+                inicio.setHours(0, 0, 0, 0);
+                hoy.setHours(0, 0, 0, 0);
+                
+                const diferenciaMs = hoy.getTime() - inicio.getTime();
+                const diasJuntos = Math.floor(diferenciaMs / (1000 * 60 * 60 * 24));
+                
+                mostrarToast(`📅 Fecha actualizada: ${diasJuntos} días juntos`);
+              } catch (e) {
+                console.error('Error calculando días:', e);
+                mostrarToast("✅ Fecha actualizada");
+              }
+            }}
           />
         );
-
       case 'review':
         return fechaSeleccionada && (
           <ReviewScreen
@@ -441,10 +537,10 @@ export default function Index() {
               }
             }}
             planes={planesHook.planes}
-            setPlanes={planesHook.setPlanes} // <-- AÑADE ESTO
-            coupleId={coupleId} // <-- AÑADE ESTO
-            planesPorDia={planesHook.planesPorDia} // <-- AÑADE ESTO
-            notas={notasHook.notas} // <-- AÑADE ESTO
+            setPlanes={planesHook.setPlanes}
+            coupleId={coupleId}
+            planesPorDia={planesHook.planesPorDia}
+            notas={notasHook.notas}
             eliminarPlanEnFecha={async (indexEnDia) => {
               const lista = planesHook.planesPorDia[fechaSeleccionada] || [];
               const nuevaLista = lista.filter((_, idx) => idx !== indexEnDia);
@@ -520,7 +616,27 @@ export default function Index() {
             progreso={desafiosHook.progresoDesafio}
             completarDesafio={desafiosHook.completarDesafio}
             generarNuevoDesafio={desafiosHook.generarNuevoDesafio}
-            desafiosDisponibles={desafiosHook.desafiosDisponibles} // <-- AÑADE ESTO
+            desafiosDisponibles={desafiosHook.desafiosDisponibles}
+          />
+        );
+
+      case 'logros':
+        return (
+          <LogrosScreen
+            setView={setView}
+            logrosHook={logrosHook}
+            stats={{
+              totalPlanesCompletados: planesHook.planes.filter(p => p.completado).length,
+              totalFotos: stats.totalFotos,
+              diasConPlanes: stats.diasConPlanes,
+            }}
+            razonesCount={razonesHook.razones.length}
+            desafiosCount={0} // Puedes calcular esto después
+            moodCount={moodHook.historialMoods?.length || 0}
+            diasJuntos={fechaAniversario 
+              ? Math.floor((new Date().getTime() - new Date(fechaAniversario).getTime()) / (1000 * 60 * 60 * 24))
+              : 0
+            }
           />
         );
 
@@ -528,10 +644,6 @@ export default function Index() {
         return null;
     }
   };
-
-
-
-
 
   return (
     <View style={{ flex: 1 }}>
