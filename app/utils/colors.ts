@@ -1,16 +1,27 @@
-// app/utils/colors.ts
+// app/utils/colors.ts - REEMPLAZA TODO POR:
 export default {
+  // FONDOS (gradientes)
   bgTop: "#2B102A",
   bgBottom: "#5B1F4A",
-  card: "#A0537A", // ✅ SIN transparencia (era rgba con 0.96)
-  primary: "#FF4F8B",
-  secondary: "#B28DFF",
-  accent: "#FFB3D1",
-  text: "#FFFFFF", // ✅ Blanco puro (era #fcf5f5)
-  muted: "#C4A5BA", // ✅ Más claro para mejor legibilidad (era #9e6192)
-  success: "#6BD18A",
-  warning: "#F7C56D",
-  danger: "#FF6B6B", // ✅ Añadido para botones de eliminar
+  
+  // TARJETAS y CONTENEDORES - SIN TRANSPARENCIA
+  card: "#4A3258",           // ✅ Sólido (era rgba con transparencia)
+  
+  // COLORES PRINCIPALES - 100% OPACOS
+  primary: "#FF4F8B",        // Rosa fuerte
+  secondary: "#B28DFF",      // Lila
+  accent: "#FFB3D1",         // Rosa claro
+  text: "#FFFFFF",           // Blanco puro
+  
+  // TEXTO SECUNDARIO
+  muted: "#C4A5BA",          // Rosa grisáceo CLARO
+  
+  // ESTADOS
+  success: "#6BD18A",        // Verde
+  warning: "#F7C56D",        // Amarillo/naranja
+  danger: "#FF6B6B",         // Rojo
+  
+  // COLORES TEMÁTICOS
   loveRed: "#FF6B9D",
   lovePink: "#FF8EB4",
   lovePurple: "#D4A5FF",

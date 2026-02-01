@@ -149,7 +149,7 @@ export const useAppState = () => {
     setCoupleId,
     setFechaAniversario,
     crearPareja,
-    conectarPareja, // <-- Exportamos la nueva función
+    conectarPareja, // <-- Debe estar aquí
     eliminarPareja,
     mostrarToast,
   };

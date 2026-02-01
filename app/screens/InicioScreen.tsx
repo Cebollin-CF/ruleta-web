@@ -126,26 +126,21 @@ export default function InicioScreen({
 
         {/* RAZÓN DEL DÍA */}
         {razonDelDia && (
-          <MotiView
-            from={{ opacity: 0, translateY: 20 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: "timing", duration: 500, delay: 200 }}
-            style={{
-              backgroundColor: `rgba(255, 79, 139, 0.9)`,
+          <View style={{
+              backgroundColor: colors.primary, // ✅ CON {{ y }}
               padding: 16,
               borderRadius: 20,
               marginBottom: 20,
               borderWidth: 2,
               borderColor: "#FFB3D1",
-            }}
-          >
+          }}>
             <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700", marginBottom: 6 }}>
               💝 Razón del día
             </Text>
             <Text style={{ color: "#fff", fontSize: 15, fontStyle: "italic" }}>
               "{razonDelDia.texto}"
             </Text>
-          </MotiView>
+          </View>
         )}
 
         {/* TÍTULO */}

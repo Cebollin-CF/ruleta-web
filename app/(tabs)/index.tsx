@@ -19,8 +19,6 @@ import ReviewScreen from '../screens/ReviewScreen';
 import RazonesScreen from '../screens/RazonesScreen';
 import DesafiosScreen from '../screens/DesafiosScreen';
 import MoodTrackerScreen from '../screens/MoodTrackerScreen';
-
-// CORRECCIÓN: Importar las pantallas que faltaban para el renderScreen
 import RuletaScreen from '../screens/RuletaScreen';
 import VinculoScreen from '../screens/VinculoScreen';
 import TimelineScreen from '../screens/TimelineScreen';
@@ -249,6 +247,7 @@ export default function Index() {
     );
   }
 
+
   // Renderizar pantalla actual
   const renderScreen = () => {
     switch (view) {
@@ -421,7 +420,6 @@ export default function Index() {
               const lista = planesHook.planesPorDia[fechaSeleccionada] || [];
               const nuevaLista = [...lista];
               nuevaLista[index] = { ...nuevaLista[index], ...cambios };
-
               planesHook.guardarPlanesPorDia(fechaSeleccionada, nuevaLista);
             }}
             subirFoto={async (index) => {
@@ -429,24 +427,24 @@ export default function Index() {
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 quality: 0.7,
               });
-
+              
               if (!result.canceled && result.assets?.[0]?.uri) {
-                const url = await uploadPhotoToSupabase(
-                  result.assets[0].uri,
-                  coupleId
-                );
+                const url = await uploadPhotoToSupabase(result.assets[0].uri, coupleId);
                 if (!url) return;
-
+                
                 const lista = planesHook.planesPorDia[fechaSeleccionada] || [];
                 const nuevasFotos = [...(lista[index].fotos || []), url];
-
                 const nuevaLista = [...lista];
                 nuevaLista[index] = { ...nuevaLista[index], fotos: nuevasFotos };
-
+                
                 planesHook.guardarPlanesPorDia(fechaSeleccionada, nuevaLista);
               }
             }}
             planes={planesHook.planes}
+            setPlanes={planesHook.setPlanes} // <-- AÑADE ESTO
+            coupleId={coupleId} // <-- AÑADE ESTO
+            planesPorDia={planesHook.planesPorDia} // <-- AÑADE ESTO
+            notas={notasHook.notas} // <-- AÑADE ESTO
             eliminarPlanEnFecha={async (indexEnDia) => {
               const lista = planesHook.planesPorDia[fechaSeleccionada] || [];
               const nuevaLista = lista.filter((_, idx) => idx !== indexEnDia);
@@ -522,6 +520,7 @@ export default function Index() {
             progreso={desafiosHook.progresoDesafio}
             completarDesafio={desafiosHook.completarDesafio}
             generarNuevoDesafio={desafiosHook.generarNuevoDesafio}
+            desafiosDisponibles={desafiosHook.desafiosDisponibles} // <-- AÑADE ESTO
           />
         );
 
@@ -530,12 +529,16 @@ export default function Index() {
     }
   };
 
+
+
+
+
   return (
     <View style={{ flex: 1 }}>
       {renderScreen()}
 
-      {/* Botón flotante de estadísticas */}
-      {view !== 'estadisticas' && view !== 'vinculo' && (
+      {/* Botón flotante de estadísticas - SOLO EN INICIO */}
+      {view === 'inicio' && (
         <TouchableOpacity
           onPress={() => setView("estadisticas")}
           style={{

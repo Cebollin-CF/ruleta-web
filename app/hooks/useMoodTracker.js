@@ -13,13 +13,18 @@ export const useMoodTracker = (coupleId, initialMoodHoy = {}, initialHistorial =
   }, [initialHistorial, initialMoodHoy]);
 
   // 2. BORRADO INFALIBLE (Por fecha, no por índice)
+  // Línea ~22, reemplaza la función eliminarMood:
   const eliminarMood = async (fecha, index) => {
     try {
       console.log("Eliminando mood con fecha:", fecha);
       
-      // En lugar de usar el índice (que puede fallar), filtramos todo lo que NO sea esa fecha.
-      // Así nos aseguramos de borrar exactamente ese registro.
-      const nuevoHistorial = (historialMoods || []).filter(m => m.fecha !== fecha);
+      // MODIFICACIÓN: Filtrar por fecha EXACTA
+      const nuevoHistorial = (historialMoods || []).filter(m => {
+        // Comparar solo la parte de fecha (YYYY-MM-DD)
+        const moodFecha = m.fecha.split("T")[0];
+        const fechaTarget = fecha.split("T")[0];
+        return moodFecha !== fechaTarget;
+      });
       
       const hoy = new Date().toISOString().split("T")[0];
       const esHoy = fecha && fecha.startsWith(hoy);

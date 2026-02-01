@@ -19,19 +19,20 @@ export default function VinculoScreen({
 }) {
   
   const handleConectarManual = async () => {
-    const code = codigoManual.trim().toUpperCase(); // Limpiamos y ponemos en mayúsculas
+    const code = codigoManual.trim().toUpperCase();
     if (!code) {
       Alert.alert("Error", "Por favor, introduce un código.");
       return;
     }
 
-    // Usamos la función del hook que busca en Supabase antes de entrar
+    // Usamos la función del hook
     const resultado = await conectarPareja(code);
     
     if (resultado?.success) {
       // Si tuvo éxito, conectarPareja ya habrá hecho el setView("inicio")
       setCodigoManual(""); // Limpiamos el input
     }
+    // Si no tuvo éxito, conectarPareja ya habrá mostrado una alerta
   };
 
   return (

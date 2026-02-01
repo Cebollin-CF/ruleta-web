@@ -1,30 +1,27 @@
 import React from "react";
 import { Text, ScrollView, Image, View, TouchableOpacity } from "react-native";
-import { MotiView } from "moti";
-import Container from "../components/Container";
+import Container from "../components/Container"; // ❌ Quitamos Moti
 import colors from "../utils/colors";
 
 export default function TimelineScreen({ setView, eventos }) {
   return (
     <Container>
-      <Text style={{ color: colors.accent, fontSize: 32, fontWeight: "800", marginBottom: 20 }}>
+      <Text style={{ 
+        color: colors.accent, 
+        fontSize: 32, 
+        fontWeight: "800", 
+        marginBottom: 20 
+      }}>
         📜 Recuerdos juntos
       </Text>
 
       <ScrollView 
         contentContainerStyle={{ paddingBottom: 100 }}
-        removeClippedSubviews={true} // ✅ Optimización
+        removeClippedSubviews={true}
       >
         {eventos.map((ev, idx) => (
-          <MotiView
+          <View
             key={idx}
-            from={{ opacity: 0, translateX: idx % 2 === 0 ? -15 : 15 }} // ✅ Menos distancia
-            animate={{ opacity: 1, translateX: 0 }}
-            transition={{ 
-              type: "timing", 
-              duration: 200, // ✅ Más rápido (era 400)
-              delay: Math.min(idx * 50, 500) // ✅ Máximo 500ms
-            }}
             style={{
               backgroundColor: colors.card,
               padding: 16,
@@ -51,7 +48,7 @@ export default function TimelineScreen({ setView, eventos }) {
 
             {/* Título */}
             <Text style={{ 
-              color: "#FFFFFF", // ✅ Blanco puro
+              color: "#FFFFFF",
               fontSize: 20, 
               fontWeight: "800", 
               marginBottom: 8 
@@ -62,7 +59,7 @@ export default function TimelineScreen({ setView, eventos }) {
             {/* Opinión */}
             {ev.opinion && (
               <Text style={{ 
-                color: "#FFFFFF", // ✅ Blanco puro
+                color: "#FFFFFF",
                 fontSize: 14, 
                 marginBottom: 10, 
                 fontStyle: "italic" 
@@ -107,7 +104,7 @@ export default function TimelineScreen({ setView, eventos }) {
                 ))}
               </ScrollView>
             )}
-          </MotiView>
+          </View> // ❌ Cambiado MotiView por View
         ))}
 
         {eventos.length === 0 && (
