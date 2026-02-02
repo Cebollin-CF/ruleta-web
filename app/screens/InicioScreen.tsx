@@ -9,7 +9,7 @@ export default function InicioScreen({
   avatarUrl,
   fechaAniversario,
   razonDelDia,
-  puntos = 0, // ✅ AÑADIDO ESTE PROP
+  puntos = 0,
 }) {
   const [diasJuntos, setDiasJuntos] = useState(0);
   const [confeti, setConfeti] = useState(false);
@@ -366,6 +366,33 @@ export default function InicioScreen({
           </Text>
           <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 10, marginTop: 2 }}>
             Desbloquea insignias
+          </Text>
+        </TouchableOpacity>
+
+        {/* BOTÓN MASCOTA - NUEVO */}
+        <TouchableOpacity
+          onPress={() => setView("mascota")}
+          style={{
+            marginTop: 12,
+            backgroundColor: `rgba(46, 204, 113, 0.9)`,
+            paddingVertical: 16,
+            paddingHorizontal: 12,
+            borderRadius: 18,
+            alignItems: "center",
+            borderWidth: 2,
+            borderColor: "#7BED9F",
+            shadowColor: "#2ECC71",
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 5,
+          }}
+        >
+          <Text style={{ fontSize: 28, marginBottom: 5 }}>🐱</Text>
+          <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14, textAlign: "center" }}>
+            Nuestra mascota
+          </Text>
+          <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 10, marginTop: 2 }}>
+            ¡Cuídala juntos!
           </Text>
         </TouchableOpacity>
 

@@ -194,6 +194,7 @@ export const useAppState = () => {
     eliminarPareja,
     mostrarToast,
     mostrarNotificacionGuardado,
+    mostrarNotificacion,
   };
 
 };

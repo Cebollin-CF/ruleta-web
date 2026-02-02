@@ -365,6 +365,42 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
 
     return null;
   };
+
+  // Añade después de las otras funciones:
+  const gastarPuntos = async (cantidad) => {
+    if (puntos < cantidad) {
+      return { success: false, error: "Puntos insuficientes" };
+    }
+
+    const nuevosPuntos = puntos - cantidad;
+    setPuntos(nuevosPuntos);
+
+    try {
+      const { data: registro } = await supabase
+        .from('app_state')
+        .select('contenido')
+        .eq('id', coupleId)
+        .single();
+
+      const contenidoPrevio = registro?.contenido || {};
+
+      await supabase
+        .from('app_state')
+        .update({
+          contenido: {
+            ...contenidoPrevio,
+            puntos: nuevosPuntos,
+          },
+        })
+        .eq('id', coupleId);
+
+      return { success: true, nuevosPuntos };
+    } catch (err) {
+      console.error('Error gastando puntos:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
   // ✅ OBTENER INFORMACIÓN DE UN LOGRO ESPECÍFICO
   const getLogroInfo = (logroId) => {
     // Extraer ID base y nivel si es repetible
@@ -442,5 +478,6 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
     getLogroInfo,
     getTodosLogrosConEstado,
     calcularProgreso,
+    gastarPuntos,
   };
 };

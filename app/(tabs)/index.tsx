@@ -10,6 +10,10 @@ import { Picker } from '@react-native-picker/picker';
 import colors from '../utils/colors';  // Desde app/utils/
 import { supabase } from '../../supabaseClient';
 
+// Importaciones de mascota (sin duplicados)
+import MascotaScreen from '../screens/MascotaScreen';
+import { useMascota } from '../hooks/useMascota';
+
 // Pantallas
 import CalendarioScreen from '../screens/CalendarioScreen';
 import EstadisticasScreen from '../screens/EstadisticasScreen';
@@ -33,7 +37,7 @@ import { useRazones } from '../hooks/useRazones';
 import { useMoodTracker } from '../hooks/useMoodTracker';
 import { useNotas } from '../hooks/useNotas';
 import { useDesafios } from '../hooks/useDesafios';
-import { useLogros } from '../hooks/useLogros'; // ✅ AÑADIR ESTA IMPORTACIÓN
+import { useLogros } from '../hooks/useLogros';
 
 /// ✅ FUNCIÓN CORREGIDA PARA SUBIR FOTOS
 async function uploadPhotoToSupabase(uri: string, coupleId: string, esAvatar = false) {
@@ -114,6 +118,14 @@ export default function Index() {
     coupleId,
     contenidoCompleto?.puntos || 0,
     contenidoCompleto?.logrosDesbloqueados || []
+  );
+
+  // Hook de mascota
+  const mascotaHook = useMascota(
+    coupleId, 
+    logrosHook.puntos || 0,
+    contenidoCompleto?.mascota,
+    logrosHook
   );
 
   // Estados para formularios
@@ -296,9 +308,6 @@ export default function Index() {
   }, [planesHook.planes, planesHook.planesPorDia]);
 
   // Función para actualizar logros automáticamente
-  // index.tsx - Modifica la función actualizarLogrosAutomaticamente
-
-// ✅ FUNCIÓN MEJORADA - con parámetro para notificaciones
   const actualizarLogrosAutomaticamente = async (mostrarNotificaciones = true) => {
     const diasJuntos = fechaAniversario 
       ? Math.floor((new Date().getTime() - new Date(fechaAniversario).getTime()) / (1000 * 60 * 60 * 24))
@@ -313,7 +322,6 @@ export default function Index() {
       desafiosCompletados: 0,
     };
 
-    // ✅ Usar función con parámetro
     const resultado = await logrosHook.actualizarLogros(datosUsuario, mostrarNotificaciones);
     
     if (resultado?.notificaciones?.length > 0 && mostrarNotificaciones) {
@@ -325,13 +333,9 @@ export default function Index() {
     return resultado;
   };
 
-  // Actualizar logros cuando cambien las estadísticas
-  // index.tsx - Reemplaza el useEffect problemático
-
-// ✅ Cargar logros al inicio SIN notificaciones
+  // ✅ Cargar logros al inicio SIN notificaciones
   useEffect(() => {
     if (coupleId && !loading && contenidoCompleto) {
-      // Cargar SILENCIOSAMENTE al inicio (sin notificaciones)
       const cargarLogrosIniciales = async () => {
         const diasJuntos = fechaAniversario 
           ? Math.floor((new Date().getTime() - new Date(fechaAniversario).getTime()) / (1000 * 60 * 60 * 24))
@@ -346,7 +350,6 @@ export default function Index() {
           desafiosCompletados: 0,
         };
 
-        // ✅ Esto NO mostrará notificaciones
         await logrosHook.actualizarLogros(datosUsuarioInicial, false);
       };
       
@@ -357,10 +360,9 @@ export default function Index() {
   // ✅ Este efecto SÍ mostrará notificaciones cuando haya cambios reales
   useEffect(() => {
     if (coupleId && !loading) {
-      // Solo actualizar con notificaciones cuando haya cambios significativos
       const timeoutId = setTimeout(() => {
-        actualizarLogrosAutomaticamente(true); // true = con notificaciones
-      }, 1000); // Pequeño delay para evitar notificaciones al cargar
+        actualizarLogrosAutomaticamente(true);
+      }, 1000);
       
       return () => clearTimeout(timeoutId);
     }
@@ -396,6 +398,16 @@ export default function Index() {
             razonDelDia={razonesHook.razonDelDia}
             avatarUrl={contenidoCompleto?.avatarUrl}
             puntos={logrosHook.puntos}
+          />
+        );
+
+      case 'mascota':
+        return (
+          <MascotaScreen
+            setView={setView}
+            mascotaHook={mascotaHook}
+            puntosTotales={logrosHook.puntos || 0}
+            mostrarToast={mostrarToast} // ✅ AÑADIDA ESTA PROP
           />
         );
 
