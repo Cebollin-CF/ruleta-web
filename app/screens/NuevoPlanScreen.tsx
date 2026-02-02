@@ -85,6 +85,7 @@ export default function NuevoPlanScreen({
     setPrecio("");
     setDuracion("");
     setCategoria("");
+
   };
 
   // ✅ FUNCIÓN PARA MOVER PLAN DE "CON FECHA" A "PENDIENTE"

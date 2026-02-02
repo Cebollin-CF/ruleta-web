@@ -35,29 +35,45 @@ import { useNotas } from '../hooks/useNotas';
 import { useDesafios } from '../hooks/useDesafios';
 import { useLogros } from '../hooks/useLogros'; // ✅ AÑADIR ESTA IMPORTACIÓN
 
-// Función para subir fotos
-async function uploadPhotoToSupabase(uri: string, coupleId: string) {
+/// ✅ FUNCIÓN CORREGIDA PARA SUBIR FOTOS
+async function uploadPhotoToSupabase(uri: string, coupleId: string, esAvatar = false) {
   try {
+    console.log("📸 Iniciando subida de foto...");
+    
     const response = await fetch(uri);
+    if (!response.ok) throw new Error("Error al obtener la imagen");
+    
     const blob = await response.blob();
+    
+    // Nombre diferente para avatar
+    const fileName = esAvatar 
+      ? `${coupleId}/avatar_${Date.now()}.jpg`
+      : `${coupleId}/photo_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.jpg`;
 
-    const fileName = `${coupleId}/${Date.now()}.jpg`;
-
-    const { error } = await supabase.storage
+    // Subir a Supabase Storage
+    const { error: uploadError } = await supabase.storage
       .from("fotos")
       .upload(fileName, blob, {
         contentType: "image/jpeg",
-        upsert: true,
+        cacheControl: "3600",
+        upsert: true
       });
 
-    if (error) return null;
+    if (uploadError) {
+      console.error("❌ Error subiendo a storage:", uploadError);
+      throw uploadError;
+    }
 
+    // Obtener URL pública
     const { data: publicData } = supabase.storage
       .from("fotos")
       .getPublicUrl(fileName);
 
-    return publicData?.publicUrl ?? null;
-  } catch {
+    console.log("✅ Foto subida correctamente:", publicData?.publicUrl);
+    return publicData?.publicUrl;
+    
+  } catch (error) {
+    console.error("❌ Error en uploadPhotoToSupabase:", error);
     return null;
   }
 }
@@ -95,9 +111,9 @@ export default function Index() {
   const notasHook = useNotas(coupleId);
   const desafiosHook = useDesafios(coupleId);
   const logrosHook = useLogros(
-  coupleId,
-  contenidoCompleto?.puntos || 0,
-  contenidoCompleto?.logrosDesbloqueados || []
+    coupleId,
+    contenidoCompleto?.puntos || 0,
+    contenidoCompleto?.logrosDesbloqueados || []
   );
 
   // Estados para formularios
@@ -134,7 +150,7 @@ export default function Index() {
         notasHook.setNotas(data.contenido.notas || []);
         desafiosHook.setDesafioActual(data.contenido.desafioActual || null);
         desafiosHook.setProgresoDesafio(data.contenido.progresoDesafio || 0);
-        logrosHook.setLogrosDesbloqueados(data.contenido.logrosDesbloqueados || []);
+        logrosHook.setLogrosDesbloqueados(data.contenido.logrosDesbloqueados || []); 
         logrosHook.setPuntos(data.contenido.puntos || 0);
       }
     };
@@ -181,42 +197,69 @@ export default function Index() {
     };
   }, [coupleId]);
 
-  // Función para subir avatar
+  // ✅ FUNCIÓN CORREGIDA PARA SUBIR AVATAR
   const subirAvatar = async (uri: string) => {
     if (!coupleId) {
-      mostrarToast("No hay pareja vinculada");
+      mostrarToast("❌ No hay pareja vinculada", "error");
       return;
     }
 
-    const url = await uploadPhotoToSupabase(uri, coupleId);
-    if (!url) {
-      mostrarToast("Error al subir foto");
-      return;
-    }
+    mostrarToast("📸 Subiendo foto...", "info");
 
     try {
-      await supabase
+      const url = await uploadPhotoToSupabase(uri, coupleId, true); // true = es avatar
+      
+      if (!url) {
+        mostrarToast("❌ Error al subir foto", "error");
+        return;
+      }
+
+      // Obtener contenido actual
+      const { data: registro } = await supabase
+        .from("app_state")
+        .select("contenido")
+        .eq("id", coupleId)
+        .single();
+
+      const contenidoActual = registro?.contenido || {};
+
+      // Actualizar en Supabase
+      const { error } = await supabase
         .from("app_state")
         .update({
           contenido: {
-            ...contenidoCompleto,
+            ...contenidoActual,
             avatarUrl: url,
           },
         })
         .eq("id", coupleId);
-      mostrarToast("Foto actualizada ✨");
+
+      if (error) {
+        console.error("Error guardando avatar:", error);
+        mostrarToast("❌ Error al guardar foto", "error");
+        return;
+      }
+
+      // Actualizar estado local
+      setContenidoCompleto(prev => ({
+        ...prev,
+        avatarUrl: url
+      }));
+
+      mostrarToast("✅ Foto de perfil actualizada ✨");
+      
     } catch (err) {
-      console.error("Error guardando avatar:", err);
+      console.error("Error en subirAvatar:", err);
+      mostrarToast("❌ Error al guardar foto", "error");
     }
   };
 
   // Función para manejar escaneo QR
   const manejarScan = async ({ data }) => {
     if (!data) return;
-    // CORRECCIÓN: Usar conectarPareja para no sobreescribir
     const res = await conectarPareja(data);
     if (res?.success) {
-        setScannerActive(false);
+      setScannerActive(false);
     }
   };
 
@@ -253,7 +296,10 @@ export default function Index() {
   }, [planesHook.planes, planesHook.planesPorDia]);
 
   // Función para actualizar logros automáticamente
-  const actualizarLogrosAutomaticamente = async () => {
+  // index.tsx - Modifica la función actualizarLogrosAutomaticamente
+
+// ✅ FUNCIÓN MEJORADA - con parámetro para notificaciones
+  const actualizarLogrosAutomaticamente = async (mostrarNotificaciones = true) => {
     const diasJuntos = fechaAniversario 
       ? Math.floor((new Date().getTime() - new Date(fechaAniversario).getTime()) / (1000 * 60 * 60 * 24))
       : 0;
@@ -267,32 +313,58 @@ export default function Index() {
       desafiosCompletados: 0,
     };
 
-    const resultado = await logrosHook.actualizarLogros(datosUsuario);
+    // ✅ Usar función con parámetro
+    const resultado = await logrosHook.actualizarLogros(datosUsuario, mostrarNotificaciones);
     
-    if (resultado?.nuevosDesbloqueos?.length > 0) {
-      resultado.nuevosDesbloqueos.forEach(logroId => {
-        const logro = logrosHook.logros.find(l => l.id === logroId);
-        if (logro) {
-          mostrarToast(`🏆 ¡Logro desbloqueado: ${logro.titulo}! (+${logro.puntos} pts)`);
-        }
+    if (resultado?.notificaciones?.length > 0 && mostrarNotificaciones) {
+      resultado.notificaciones.forEach(notif => {
+        mostrarToast(`🏆 ${notif.titulo}! (+${notif.puntos} pts)`);
       });
     }
+    
+    return resultado;
   };
 
   // Actualizar logros cuando cambien las estadísticas
+  // index.tsx - Reemplaza el useEffect problemático
+
+// ✅ Cargar logros al inicio SIN notificaciones
+  useEffect(() => {
+    if (coupleId && !loading && contenidoCompleto) {
+      // Cargar SILENCIOSAMENTE al inicio (sin notificaciones)
+      const cargarLogrosIniciales = async () => {
+        const diasJuntos = fechaAniversario 
+          ? Math.floor((new Date().getTime() - new Date(fechaAniversario).getTime()) / (1000 * 60 * 60 * 24))
+          : 0;
+
+        const datosUsuarioInicial = {
+          totalPlanesCompletados: planesHook.planes.filter(p => p.completado).length,
+          diasJuntos: diasJuntos,
+          totalFotos: stats.totalFotos,
+          totalRazones: razonesHook.razones.length,
+          diasConPlanes: stats.diasConPlanes,
+          desafiosCompletados: 0,
+        };
+
+        // ✅ Esto NO mostrará notificaciones
+        await logrosHook.actualizarLogros(datosUsuarioInicial, false);
+      };
+      
+      cargarLogrosIniciales();
+    }
+  }, [coupleId, loading, contenidoCompleto]);
+
+  // ✅ Este efecto SÍ mostrará notificaciones cuando haya cambios reales
   useEffect(() => {
     if (coupleId && !loading) {
-      actualizarLogrosAutomaticamente();
+      // Solo actualizar con notificaciones cuando haya cambios significativos
+      const timeoutId = setTimeout(() => {
+        actualizarLogrosAutomaticamente(true); // true = con notificaciones
+      }, 1000); // Pequeño delay para evitar notificaciones al cargar
+      
+      return () => clearTimeout(timeoutId);
     }
-  }, [stats, planesHook.planes, razonesHook.razones]);
-
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  }, [stats.totalPlanes, stats.totalFotos, razonesHook.razones.length]);
 
   // Renderizar pantalla actual
   const renderScreen = () => {
@@ -332,8 +404,24 @@ export default function Index() {
           <RazonesScreen
             setView={setView}
             razones={razonesHook.razones}
-            agregarRazon={razonesHook.agregarRazon}
-            eliminarRazon={razonesHook.eliminarRazon}
+            agregarRazon={async (texto) => {
+              const result = await razonesHook.agregarRazon(texto);
+              if (result?.success) {
+                mostrarToast("💝 Razón agregada");
+              } else {
+                mostrarToast("❌ Error al agregar razón", "error");
+              }
+              return result;
+            }}
+            eliminarRazon={async (razonId) => {
+              const result = await razonesHook.eliminarRazon(razonId);
+              if (result?.success) {
+                mostrarToast("🗑️ Razón eliminada");
+              } else {
+                mostrarToast("❌ Error al eliminar razón", "error");
+              }
+              return result;
+            }}
             editarRazon={razonesHook.editarRazon}
             razonDelDia={razonesHook.razonDelDia}
           />
@@ -385,7 +473,15 @@ export default function Index() {
             setEditando={setEditando}
             planEditandoId={planEditandoId}
             setPlanEditandoId={setPlanEditandoId}
-            guardarNuevoPlan={planesHook.agregarPlan}
+            guardarNuevoPlan={async (nuevoPlan) => {
+              const success = await planesHook.agregarPlan(nuevoPlan);
+              if (success) {
+                mostrarToast("✅ Plan creado exitosamente");
+              } else {
+                mostrarToast("❌ Error al crear plan", "error");
+              }
+              return success;
+            }}
             coupleId={coupleId}
             planesPorDia={planesHook.planesPorDia}
             notas={notasHook.notas}
@@ -457,17 +553,14 @@ export default function Index() {
             }}
             fechaAniversario={fechaAniversario}
             setFechaAniversario={(nuevaFecha) => {
-              // 1. Guardar en estado local (si existe la función)
               if (typeof setFechaAniversario === 'function') {
                 setFechaAniversario(nuevaFecha);
               }
               
-              // 2. Guardar en AsyncStorage SIEMPRE
               AsyncStorage.setItem('fecha_aniversario', nuevaFecha)
                 .then(() => console.log('Fecha guardada en AsyncStorage:', nuevaFecha))
                 .catch(err => console.error('Error guardando fecha:', err));
               
-              // 3. Guardar en Supabase SI hay coupleId
               if (coupleId && contenidoCompleto) {
                 supabase
                   .from('app_state')
@@ -487,11 +580,9 @@ export default function Index() {
                   });
               }
               
-              // 4. Mostrar días calculados CORRECTAMENTE
               try {
                 const inicio = new Date(nuevaFecha);
                 const hoy = new Date();
-                // Asegurar que las fechas estén en el mismo timezone
                 inicio.setHours(0, 0, 0, 0);
                 hoy.setHours(0, 0, 0, 0);
                 
@@ -506,34 +597,66 @@ export default function Index() {
             }}
           />
         );
+
       case 'review':
         return fechaSeleccionada && (
           <ReviewScreen
             setView={setView}
             fechaSeleccionada={fechaSeleccionada}
             lista={planesHook.planesPorDia[fechaSeleccionada] || []}
-            actualizarPlan={(index, cambios) => {
-              const lista = planesHook.planesPorDia[fechaSeleccionada] || [];
-              const nuevaLista = [...lista];
-              nuevaLista[index] = { ...nuevaLista[index], ...cambios };
-              planesHook.guardarPlanesPorDia(fechaSeleccionada, nuevaLista);
+            actualizarPlan={async (index, cambios) => {
+              try {
+                const lista = planesHook.planesPorDia[fechaSeleccionada] || [];
+                const nuevaLista = [...lista];
+                nuevaLista[index] = { ...nuevaLista[index], ...cambios };
+                
+                const success = await planesHook.guardarPlanesPorDia(fechaSeleccionada, nuevaLista);
+                
+                if (success) {
+                  mostrarToast("✅ Cambios guardados");
+                } else {
+                  mostrarToast("❌ Error al guardar", "error");
+                }
+              } catch (error) {
+                console.error("Error al actualizar plan:", error);
+                mostrarToast("❌ Error al guardar cambios", "error");
+              }
             }}
             subirFoto={async (index) => {
-              const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                quality: 0.7,
-              });
-              
-              if (!result.canceled && result.assets?.[0]?.uri) {
-                const url = await uploadPhotoToSupabase(result.assets[0].uri, coupleId);
-                if (!url) return;
+              try {
+                const result = await ImagePicker.launchImageLibraryAsync({
+                  mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                  quality: 0.7,
+                });
                 
-                const lista = planesHook.planesPorDia[fechaSeleccionada] || [];
-                const nuevasFotos = [...(lista[index].fotos || []), url];
-                const nuevaLista = [...lista];
-                nuevaLista[index] = { ...nuevaLista[index], fotos: nuevasFotos };
-                
-                planesHook.guardarPlanesPorDia(fechaSeleccionada, nuevaLista);
+                if (!result.canceled && result.assets?.[0]?.uri) {
+                  mostrarToast("📸 Subiendo foto...", "info");
+                  
+                  const url = await uploadPhotoToSupabase(result.assets[0].uri, coupleId, false);
+                  if (!url) {
+                    mostrarToast("❌ Error al subir foto", "error");
+                    return;
+                  }
+                  
+                  const lista = planesHook.planesPorDia[fechaSeleccionada] || [];
+                  const nuevasFotos = [...(lista[index].fotos || []), url];
+                  const nuevaLista = [...lista];
+                  nuevaLista[index] = { 
+                    ...nuevaLista[index], 
+                    fotos: nuevasFotos 
+                  };
+                  
+                  const success = await planesHook.guardarPlanesPorDia(fechaSeleccionada, nuevaLista);
+                  
+                  if (success) {
+                    mostrarToast("📸 Foto guardada!");
+                  } else {
+                    mostrarToast("⚠️ Error al guardar foto", "error");
+                  }
+                }
+              } catch (error) {
+                console.error("Error al subir foto:", error);
+                mostrarToast("❌ Error al subir foto", "error");
               }
             }}
             planes={planesHook.planes}
@@ -542,10 +665,21 @@ export default function Index() {
             planesPorDia={planesHook.planesPorDia}
             notas={notasHook.notas}
             eliminarPlanEnFecha={async (indexEnDia) => {
-              const lista = planesHook.planesPorDia[fechaSeleccionada] || [];
-              const nuevaLista = lista.filter((_, idx) => idx !== indexEnDia);
-              await planesHook.guardarPlanesPorDia(fechaSeleccionada, nuevaLista);
-              mostrarToast("Plan eliminado");
+              try {
+                const lista = planesHook.planesPorDia[fechaSeleccionada] || [];
+                const nuevaLista = lista.filter((_, idx) => idx !== indexEnDia);
+                
+                const success = await planesHook.guardarPlanesPorDia(fechaSeleccionada, nuevaLista);
+                
+                if (success) {
+                  mostrarToast("🗑️ Plan eliminado");
+                } else {
+                  mostrarToast("❌ Error al eliminar", "error");
+                }
+              } catch (error) {
+                console.error("Error al eliminar plan:", error);
+                mostrarToast("❌ Error al eliminar", "error");
+              }
             }}
             mostrarToast={mostrarToast}
           />
@@ -558,9 +692,33 @@ export default function Index() {
             notaTexto={notaTexto}
             setNotaTexto={setNotaTexto}
             notas={notasHook.notas}
-            guardarNota={notasHook.agregarNota}
-            eliminarNota={notasHook.eliminarNota}
-            editarNota={notasHook.editarNota}
+            guardarNota={async (texto, categoria) => {
+              const success = await notasHook.agregarNota(texto, categoria);
+              if (success) {
+                mostrarToast("📝 Nota guardada");
+              } else {
+                mostrarToast("❌ Error al guardar nota", "error");
+              }
+              return success;
+            }}
+            eliminarNota={async (notaId) => {
+              const success = await notasHook.eliminarNota(notaId);
+              if (success) {
+                mostrarToast("🗑️ Nota eliminada");
+              } else {
+                mostrarToast("❌ Error al eliminar nota", "error");
+              }
+              return success;
+            }}
+            editarNota={async (notaId, texto, categoria) => {
+              const success = await notasHook.editarNota(notaId, texto, categoria);
+              if (success) {
+                mostrarToast("✏️ Nota actualizada");
+              } else {
+                mostrarToast("❌ Error al editar nota", "error");
+              }
+              return success;
+            }}
           />
         );
 
@@ -631,7 +789,7 @@ export default function Index() {
               diasConPlanes: stats.diasConPlanes,
             }}
             razonesCount={razonesHook.razones.length}
-            desafiosCount={0} // Puedes calcular esto después
+            desafiosCount={0}
             moodCount={moodHook.historialMoods?.length || 0}
             diasJuntos={fechaAniversario 
               ? Math.floor((new Date().getTime() - new Date(fechaAniversario).getTime()) / (1000 * 60 * 60 * 24))

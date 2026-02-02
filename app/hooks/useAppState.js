@@ -81,6 +81,25 @@ export const useAppState = () => {
     }
   };
 
+  // useAppState.js - Añade después de mostrarToast
+  const mostrarNotificacionGuardado = (mensaje, tipo = "success") => {
+    const colores = {
+      success: colors.primary,
+      error: colors.danger,
+      warning: colors.warning,
+      info: colors.secondary
+    };
+    
+    setToast({ 
+      text: mensaje, 
+      visible: true,
+      tipo: tipo,
+      color: colores[tipo] || colors.primary
+    });
+    
+    setTimeout(() => setToast({ text: '', visible: false }), 3000);
+  };
+
   // 2. FUNCIÓN PARA VINCULAR (Para recuperar planes borrados o conectar otro móvil)
   const conectarPareja = async (idAMano) => {
     if (!idAMano || idAMano.trim() === '') {
@@ -126,9 +145,28 @@ export const useAppState = () => {
     }
   };
 
-  const mostrarToast = (text, duration = 3000) => {
-    setToast({ text, visible: true });
-    setTimeout(() => setToast({ text: '', visible: false }), duration);
+
+  const mostrarToast = (text, tipo = "success") => {
+    const colores = {
+      success: "#6BD18A",  // Verde para éxito
+      error: "#FF6B6B",    // Rojo para errores
+      warning: "#F7C56D",  // Amarillo para advertencias
+      info: "#B28DFF"      // Lila para información
+    };
+    
+    setToast({ 
+      text, 
+      visible: true,
+      tipo,
+      color: colores[tipo] || colores.success
+    });
+    
+    setTimeout(() => setToast({ text: '', visible: false }), 3000);
+  };
+
+  // Agrega esta función para toast con emojis
+  const mostrarNotificacion = (mensaje, emoji = "✅") => {
+    mostrarToast(`${emoji} ${mensaje}`);
   };
 
   const eliminarPareja = async () => {
@@ -152,8 +190,10 @@ export const useAppState = () => {
     setCoupleId,
     setFechaAniversario,
     crearPareja,
-    conectarPareja, // <-- Debe estar aquí
+    conectarPareja,
     eliminarPareja,
     mostrarToast,
+    mostrarNotificacionGuardado,
   };
+
 };

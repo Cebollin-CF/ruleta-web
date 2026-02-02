@@ -277,10 +277,20 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       porcentaje: Math.round(porcentaje)
     };
   };
+  
+  // useLogros.js - Añade después de actualizarLogros
+
+// ✅ FUNCIÓN PARA CARGAR LOGROS SIN NOTIFICACIONES
+  const cargarLogrosSilenciosamente = async (datosUsuario) => {
+    return await actualizarLogros(datosUsuario, false); // false = sin notificaciones
+  };
 
   // ✅ ACTUALIZAR LOGROS AUTOMÁTICAMENTE
-  const actualizarLogros = async (datosUsuario) => {
-    if (!coupleId) return;
+  // useLogros.js - Modifica la función actualizarLogros
+
+  const actualizarLogros = async (datosUsuario, mostrarNotificaciones = true) => {
+    // ✅ Parámetro para controlar si mostrar notificaciones
+    if (!coupleId) return null;
 
     const nuevosDesbloqueos = [];
     let nuevosPuntos = 0;
@@ -291,22 +301,24 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       const valorActual = logro.condicion(datosUsuario);
       
       if (logro.tipo === 'unico') {
-        // Logros únicos (solo una vez)
         const logroId = `${logro.id}`;
         const yaDesbloqueado = logrosDesbloqueados.includes(logroId);
         
         if (!yaDesbloqueado && valorActual) {
           nuevosDesbloqueos.push(logroId);
           nuevosPuntos += logro.puntos;
-          notificaciones.push({
-            titulo: logro.titulo,
-            puntos: logro.puntos,
-            icono: logro.icono
-          });
+          
+          // ✅ SOLO agregar notificación si se permite
+          if (mostrarNotificaciones) {
+            notificaciones.push({
+              titulo: logro.titulo,
+              puntos: logro.puntos,
+              icono: logro.icono
+            });
+          }
         }
       } 
       else if (logro.tipo === 'repetible' && logro.niveles) {
-        // Logros repetibles con niveles
         const nivelActual = calcularNivelActual(logro, valorActual);
         
         // Desbloquear cada nivel alcanzado
@@ -317,15 +329,17 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
           if (!yaDesbloqueado) {
             nuevosDesbloqueos.push(logroId);
             
-            // Dar más puntos por niveles más altos
             const puntosNivel = logro.puntos * nivel;
             nuevosPuntos += puntosNivel;
             
-            notificaciones.push({
-              titulo: `${logro.titulo} (Nivel ${nivel})`,
-              puntos: puntosNivel,
-              icono: logro.icono
-            });
+            // ✅ SOLO agregar notificación si se permite
+            if (mostrarNotificaciones) {
+              notificaciones.push({
+                titulo: `${logro.titulo} (Nivel ${nivel})`,
+                puntos: puntosNivel,
+                icono: logro.icono
+              });
+            }
           }
         }
       }
@@ -345,13 +359,12 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       return { 
         nuevosDesbloqueos, 
         puntosGanados: nuevosPuntos,
-        notificaciones 
+        notificaciones: mostrarNotificaciones ? notificaciones : [] // ✅ Solo si se permite
       };
     }
 
     return null;
   };
-
   // ✅ OBTENER INFORMACIÓN DE UN LOGRO ESPECÍFICO
   const getLogroInfo = (logroId) => {
     // Extraer ID base y nivel si es repetible

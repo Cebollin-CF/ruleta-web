@@ -8,38 +8,61 @@ export const usePlanes = (coupleId, initialPlanes = [], initialPlanesPorDia = {}
   const [intentosRuleta, setIntentosRuleta] = useState(0);
 
   // ✅ FUNCIÓN MEJORADA PARA GUARDAR EN SUPABASE
+  // ✅ FUNCIÓN MEJORADA PARA GUARDAR PLANES
   const guardarEnSupabase = async (nuevosPlanes = null, nuevosPlanesPorDia = null) => {
-    if (!coupleId) return false;
+    if (!coupleId) {
+      console.error("❌ No hay coupleId para guardar planes");
+      return false;
+    }
 
     try {
-      // Primero obtener el contenido actual
-      const { data: registro } = await supabase
+      // Primero obtener el contenido actual COMPLETO
+      const { data: registro, error: fetchError } = await supabase
         .from('app_state')
         .select('contenido')
         .eq('id', coupleId)
         .single();
 
+      if (fetchError) {
+        console.error("❌ Error obteniendo datos:", fetchError);
+        return false;
+      }
+
       const contenidoPrevio = registro?.contenido || {};
 
-      // Actualizar solo lo que cambió
-      await supabase
+      // Preparar datos para actualizar
+      const datosActualizados = {
+        ...contenidoPrevio,
+      };
+
+      if (nuevosPlanes !== null) {
+        datosActualizados.planes = nuevosPlanes;
+      }
+
+      if (nuevosPlanesPorDia !== null) {
+        datosActualizados.planesPorDia = nuevosPlanesPorDia;
+      }
+
+      // Actualizar en Supabase
+      const { error: updateError } = await supabase
         .from('app_state')
         .update({
-          contenido: {
-            ...contenidoPrevio,
-            planes: nuevosPlanes !== null ? nuevosPlanes : planes,
-            planesPorDia: nuevosPlanesPorDia !== null ? nuevosPlanesPorDia : planesPorDia,
-          },
+          contenido: datosActualizados
         })
         .eq('id', coupleId);
 
+      if (updateError) {
+        console.error("❌ Error actualizando planes:", updateError);
+        return false;
+      }
+
+      console.log("✅ Planes guardados correctamente");
       return true;
     } catch (err) {
-      console.error('Error guardando en Supabase:', err);
+      console.error('❌ Error guardando planes:', err);
       return false;
     }
   };
-
   // Guardar planes por día
   const guardarPlanesPorDia = async (fecha, nuevaLista) => {
     if (!coupleId) return false;
