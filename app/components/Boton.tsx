@@ -1,24 +1,37 @@
-import { TouchableOpacity, Text } from "react-native";
+import { TouchableOpacity, Text, StyleProp, ViewStyle, TextStyle } from "react-native";
 import { MotiView } from "moti";
+import { useState } from "react";
+
+interface BotonProps {
+  text: string;
+  onPress: () => void;
+  color: string;
+  small?: boolean;
+  style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
+}
 
 export default function Boton({
   text,
   onPress,
   color,
-  small,
+  small = false,
   style,
   textStyle,
-}) {
+}: BotonProps) {
+  const [pressed, setPressed] = useState(false);
+
   return (
     <MotiView
       from={{ scale: 1 }}
-      animate={{ scale: 1 }}
-      whileTap={{ scale: 0.97 }} // ✅ Menos escala = más sutil
+      animate={{ scale: pressed ? 0.97 : 1 }}
       transition={{ type: "timing", duration: 80 }} // ✅ Más rápido (era 120)
       style={{ marginBottom: 14 }}
     >
       <TouchableOpacity
         onPress={onPress}
+        onPressIn={() => setPressed(true)}
+        onPressOut={() => setPressed(false)}
         activeOpacity={0.8} // ✅ Feedback visual táctil
         style={[
           {

@@ -1,9 +1,10 @@
 import { supabase } from "../../supabaseClient";
+import { Plan } from "./types";
 
 /* ---------------------------------------------------
    GUARDAR NUEVO PLAN
 --------------------------------------------------- */
-export async function guardarNuevoPlan(plan, coupleId) {
+export async function guardarNuevoPlan(plan: Plan, coupleId: string) {
   const { data } = await supabase
     .from("app_state")
     .select("contenido")
@@ -32,7 +33,7 @@ export async function guardarNuevoPlan(plan, coupleId) {
 /* ---------------------------------------------------
    GUARDAR PLANES POR DÍA
 --------------------------------------------------- */
-export async function guardarPlanesPorDia(fecha, planesDelDia, coupleId) {
+export async function guardarPlanesPorDia(fecha: string, planesDelDia: Plan[], coupleId: string) {
   const { data } = await supabase
     .from("app_state")
     .select("contenido")
@@ -64,7 +65,7 @@ export async function guardarPlanesPorDia(fecha, planesDelDia, coupleId) {
 
 /* Guardar notas */
 
-export async function guardarNotas(notas, coupleId) {
+export async function guardarNotas(notas: string[], coupleId: string) {
   const { data } = await supabase
     .from("app_state")
     .select("contenido")

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, Text, TouchableOpacity, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BarCodeScanner } from 'expo-camera';
+import { Camera } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { Picker } from '@react-native-picker/picker';
 
@@ -123,7 +123,6 @@ export default function Index() {
   const mascotaHook = useMascota(
     coupleId,
     logrosHook.puntos || 0,
-    contenidoCompleto?.mascota,
     logrosHook,
     usuarioActual
   );
@@ -289,7 +288,7 @@ export default function Index() {
           table: 'app_state',
           filter: `id=eq.${coupleId}`,
         },
-        (payload) => {
+        (payload: any) => {
           if (payload.new?.contenido) {
             setContenidoCompleto(payload.new.contenido);
             planesHook.setPlanes(payload.new.contenido.planes || []);
@@ -345,7 +344,7 @@ export default function Index() {
   };
 
   // Función para manejar escaneo QR
-  const manejarScan = async ({ data }) => {
+  const manejarScan = async ({ data }: { data: string }) => {
     if (!data) return;
     const res = await conectarPareja(data);
     if (res?.success) {
@@ -355,7 +354,7 @@ export default function Index() {
 
   // Función para pedir permiso de cámara
   const pedirPermisoCamara = async () => {
-    const { status } = await BarCodeScanner.requestPermissionsAsync();
+    const { status } = await Camera.requestCameraPermissionsAsync();
     setHasCameraPermission(status === "granted");
     if (status === "granted") setScannerActive(true);
   };

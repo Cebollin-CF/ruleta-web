@@ -6,6 +6,7 @@ import { Alert } from 'react-native';
 export const useAppState = () => {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('vinculo');
+  /** @type {[string | null, React.Dispatch<React.SetStateAction<string | null>>]} */
   const [coupleId, setCoupleId] = useState(null);
   const [fechaAniversario, setFechaAniversario] = useState(null);
   const [toast, setToast] = useState({ text: '', visible: false });
@@ -44,7 +45,7 @@ export const useAppState = () => {
     try {
       setLoading(true);
       const newId = Math.random().toString(36).substring(2, 8).toUpperCase(); // ID más corto y bonito
-      
+
       const initialData = {
         planes: [],
         planesPorDia: {},
@@ -71,7 +72,7 @@ export const useAppState = () => {
       await AsyncStorage.setItem('couple_id', newId);
       setCoupleId(newId);
       setView('inicio');
-      
+
       return { success: true, coupleId: newId };
     } catch (error) {
       Alert.alert("Error", "No se pudo crear el código nuevo.");
@@ -89,14 +90,14 @@ export const useAppState = () => {
       warning: colors.warning,
       info: colors.secondary
     };
-    
-    setToast({ 
-      text: mensaje, 
+
+    setToast({
+      text: mensaje,
       visible: true,
       tipo: tipo,
       color: colores[tipo] || colors.primary
     });
-    
+
     setTimeout(() => setToast({ text: '', visible: false }), 3000);
   };
 
@@ -127,7 +128,7 @@ export const useAppState = () => {
       // IMPORTANTE: NO hacemos upsert aquí, solo leemos.
       await AsyncStorage.setItem('couple_id', idLimpio);
       setCoupleId(idLimpio);
-      
+
       if (data.contenido?.fechaAniversario) {
         setFechaAniversario(data.contenido.fechaAniversario);
         await AsyncStorage.setItem('fecha_aniversario', data.contenido.fechaAniversario);
@@ -153,14 +154,14 @@ export const useAppState = () => {
       warning: "#F7C56D",  // Amarillo para advertencias
       info: "#B28DFF"      // Lila para información
     };
-    
-    setToast({ 
-      text, 
+
+    setToast({
+      text,
       visible: true,
       tipo,
       color: colores[tipo] || colores.success
     });
-    
+
     setTimeout(() => setToast({ text: '', visible: false }), 3000);
   };
 
