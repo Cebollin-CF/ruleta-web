@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { supabase } from '../../supabaseClient';
 
-export const useRazones = (coupleId, contenidoCompleto) => {
-  const [razones, setRazones] = useState(contenidoCompleto?.razones || []);
-  const [razonDelDia, setRazonDelDia] = useState(contenidoCompleto?.razonDelDia || null);
+export const useRazones = (coupleId, usuarioActual) => {
+  const [razones, setRazones] = useState([]);
+  const [razonDelDia, setRazonDelDia] = useState(null);
 
   // Función para actualizar contenido completo en Supabase
   const actualizarContenidoCompleto = async (nuevasRazones, nuevaRazonDelDia = null) => {
@@ -14,7 +14,6 @@ export const useRazones = (coupleId, contenidoCompleto) => {
         .from('app_state')
         .update({
           contenido: {
-            ...contenidoCompleto,
             razones: nuevasRazones,
             razonDelDia: nuevaRazonDelDia !== null ? nuevaRazonDelDia : razonDelDia,
           },
@@ -27,15 +26,17 @@ export const useRazones = (coupleId, contenidoCompleto) => {
     }
   };
 
-  // Agregar razón
+  // Agregar razón con usuario
   const agregarRazon = async (texto) => {
-    if (!coupleId || !texto.trim()) return false;
+    if (!coupleId || !texto.trim() || !usuarioActual) return false;
 
     const nuevaRazon = {
       id: Date.now().toString(),
       texto: texto.trim(),
-      autor: 'Tú',
+      autor: usuarioActual.nombre,
+      autorId: usuarioActual.id,
       fecha: new Date().toISOString(),
+      usuarioNumero: usuarioActual.usuario_numero
     };
 
     const nuevasRazones = [nuevaRazon, ...razones];
@@ -52,9 +53,18 @@ export const useRazones = (coupleId, contenidoCompleto) => {
     return { success, razon: nuevaRazon };
   };
 
-  // Eliminar razón
+  // Eliminar razón (solo el autor puede eliminar)
   const eliminarRazon = async (razonId) => {
     const razonAEliminar = razones.find(r => r.id === razonId);
+    
+    // Verificar que el usuario actual es el autor
+    if (usuarioActual && razonAEliminar?.autorId !== usuarioActual.id) {
+      return { 
+        success: false, 
+        error: 'Solo el autor puede eliminar esta razón' 
+      };
+    }
+
     const nuevasRazones = razones.filter(r => r.id !== razonId);
     
     setRazones(nuevasRazones);
@@ -76,8 +86,18 @@ export const useRazones = (coupleId, contenidoCompleto) => {
     return { success };
   };
 
-  // Editar razón
+  // Editar razón (solo el autor puede editar)
   const editarRazon = async (razonId, nuevoTexto) => {
+    const razonAEditar = razones.find(r => r.id === razonId);
+    
+    // Verificar que el usuario actual es el autor
+    if (usuarioActual && razonAEditar?.autorId !== usuarioActual.id) {
+      return { 
+        success: false, 
+        error: 'Solo el autor puede editar esta razón' 
+      };
+    }
+
     const nuevasRazones = razones.map(r =>
       r.id === razonId ? { ...r, texto: nuevoTexto } : r
     );
@@ -109,6 +129,11 @@ export const useRazones = (coupleId, contenidoCompleto) => {
     return randomRazon;
   };
 
+  // Obtener razones por usuario
+  const getRazonesPorUsuario = (usuarioId) => {
+    return razones.filter(r => r.autorId === usuarioId);
+  };
+
   return {
     // Estados
     razones,
@@ -123,5 +148,6 @@ export const useRazones = (coupleId, contenidoCompleto) => {
     eliminarRazon,
     editarRazon,
     seleccionarRazonDelDiaAleatoria,
+    getRazonesPorUsuario
   };
 };

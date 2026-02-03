@@ -27,7 +27,7 @@ const crearEstadoInicial = () => ({
   recompensasDesbloqueadas: []
 });
 
-export const useMascota = (coupleId, puntosTotales, logrosHook, usuarioId = 'user1') => {
+export const useMascota = (coupleId, puntosTotales, logrosHook, usuarioActual) => {
   const [mascota, setMascota] = useState(crearEstadoInicial());
 
   // Cargar mascota desde Supabase
@@ -130,21 +130,19 @@ export const useMascota = (coupleId, puntosTotales, logrosHook, usuarioId = 'use
     }
   };
 
-  // Calcular tiempo restante para una acción
-  const getTiempoRestante = (tipo) => {
-    // Verificar que temporizadores existe
-    if (!mascota.temporizadores) {
+  // Calcular tiempo restante para una acción por usuario
+  const getTiempoRestante = (tipo, usuarioActual) => {
+    if (!usuarioActual || !mascota.temporizadores) {
       return 0;
     }
     
-    const usuario = usuarioId === 'user1' ? 'usuario1' : 'usuario2';
+    const usuarioKey = `usuario${usuarioActual.usuario_numero}`;
     
-    // Verificar que el usuario existe en temporizadores
-    if (!mascota.temporizadores[usuario]) {
+    if (!mascota.temporizadores[usuarioKey]) {
       return 0;
     }
     
-    const ultimaAccion = mascota.temporizadores[usuario][tipo];
+    const ultimaAccion = mascota.temporizadores[usuarioKey][tipo];
     
     if (!ultimaAccion) return 0;
     
@@ -157,21 +155,28 @@ export const useMascota = (coupleId, puntosTotales, logrosHook, usuarioId = 'use
     return Math.ceil(10 - horasPasadas);
   };
 
-  const puedeInteractuar = (tipo) => {
-    return getTiempoRestante(tipo) === 0;
+  const puedeInteractuar = (tipo, usuarioActual) => {
+    return getTiempoRestante(tipo, usuarioActual) === 0;
   };
 
   // Interactuar con la mascota
-  const interactuar = async (tipo) => {
-    if (!puedeInteractuar(tipo)) {
-      const horas = getTiempoRestante(tipo);
+  const interactuar = async (tipo, usuarioActual) => {
+    if (!usuarioActual) {
       return { 
         success: false, 
-        error: `Debes esperar ${horas} horas para ${tipo} de nuevo` 
+        error: "No hay usuario seleccionado" 
       };
     }
 
-    const usuario = usuarioId === 'user1' ? 'usuario1' : 'usuario2';
+    if (!puedeInteractuar(tipo, usuarioActual)) {
+      const horas = getTiempoRestante(tipo, usuarioActual);
+      return { 
+        success: false, 
+        error: `${usuarioActual.nombre}, espera ${horas} horas para ${tipo} de nuevo` 
+      };
+    }
+
+    const usuarioKey = `usuario${usuarioActual.usuario_numero}`;
     let nuevoEstado = mascota.estado;
     let incrementoFelicidad = 0;
     let mensaje = '';
@@ -180,17 +185,17 @@ export const useMascota = (coupleId, puntosTotales, logrosHook, usuarioId = 'use
       case 'acariciar':
         nuevoEstado = 'feliz';
         incrementoFelicidad = 25;
-        mensaje = `¡Acariciaste a ${mascota.nombre}! ❤️ +25 felicidad`;
+        mensaje = `¡${usuarioActual.nombre} acarició a ${mascota.nombre}! ❤️ +25 felicidad`;
         break;
       case 'alimentar':
         nuevoEstado = 'satisfecho';
         incrementoFelicidad = 25;
-        mensaje = `¡Alimentaste a ${mascota.nombre}! 🍎 +25 felicidad`;
+        mensaje = `¡${usuarioActual.nombre} alimentó a ${mascota.nombre}! 🍎 +25 felicidad`;
         break;
       case 'jugar':
         nuevoEstado = 'jugueton';
         incrementoFelicidad = 25;
-        mensaje = `¡Jugaste con ${mascota.nombre}! 🎾 +25 felicidad`;
+        mensaje = `¡${usuarioActual.nombre} jugó con ${mascota.nombre}! 🎾 +25 felicidad`;
         break;
       default:
         return { success: false, error: 'Acción no válida' };
@@ -206,9 +211,10 @@ export const useMascota = (coupleId, puntosTotales, logrosHook, usuarioId = 'use
         id: `recompensa_${Date.now()}`,
         tipo: 'felicidad_completa',
         titulo: '¡Felicidad al máximo! 🎉',
-        descripcion: 'Has llenado la barra de felicidad',
+        descripcion: `${usuarioActual.nombre} llenó la barra de felicidad`,
         recompensa: 'Accesorio exclusivo: Collar de Diamantes 💎',
-        fecha: new Date().toISOString()
+        fecha: new Date().toISOString(),
+        usuario: usuarioActual.nombre
       };
     }
 
@@ -219,8 +225,8 @@ export const useMascota = (coupleId, puntosTotales, logrosHook, usuarioId = 'use
       ultimaInteraccion: new Date().toISOString(),
       temporizadores: {
         ...mascota.temporizadores,
-        [usuario]: {
-          ...(mascota.temporizadores?.[usuario] || {
+        [usuarioKey]: {
+          ...(mascota.temporizadores?.[usuarioKey] || {
             acariciar: null,
             alimentar: null,
             jugar: null
@@ -240,7 +246,7 @@ export const useMascota = (coupleId, puntosTotales, logrosHook, usuarioId = 'use
       const resultado = { success: true, mensaje };
       if (recompensaDesbloqueada) {
         resultado.recompensa = recompensaDesbloqueada;
-        resultado.mensajeExtra = `🎊 ¡Felicidad completa! ${recompensaDesbloqueada.recompensa}`;
+        resultado.mensajeExtra = `🎊 ¡Felicidad completa! ${recompensaDesbloqueada.recompensa} (por ${recompensaDesbloqueada.usuario})`;
       }
       return resultado;
     } else {
@@ -249,7 +255,11 @@ export const useMascota = (coupleId, puntosTotales, logrosHook, usuarioId = 'use
   };
 
   // Comprar accesorio
-  const comprarAccesorio = async (accesorio) => {
+  const comprarAccesorio = async (accesorio, usuarioActual) => {
+    if (!usuarioActual) {
+      return { success: false, error: 'No hay usuario seleccionado' };
+    }
+
     const yaComprado = (mascota.accesorios || []).some(a => a.id === accesorio.id);
     if (yaComprado) {
       return { success: false, error: 'Ya tienes este accesorio' };
@@ -258,7 +268,7 @@ export const useMascota = (coupleId, puntosTotales, logrosHook, usuarioId = 'use
     if (puntosTotales < accesorio.precio) {
       return { 
         success: false, 
-        error: `Necesitas ${accesorio.precio} puntos, tienes ${puntosTotales}` 
+        error: `${usuarioActual.nombre}, necesitas ${accesorio.precio} puntos, tienes ${puntosTotales}` 
       };
     }
     
@@ -269,7 +279,7 @@ export const useMascota = (coupleId, puntosTotales, logrosHook, usuarioId = 'use
     
     const nuevaMascota = {
       ...mascota,
-      accesorios: [...(mascota.accesorios || []), { ...accesorio, equipado: true }]
+      accesorios: [...(mascota.accesorios || []), { ...accesorio, equipado: true, compradoPor: usuarioActual.nombre }]
     };
     
     setMascota(nuevaMascota);
@@ -278,7 +288,7 @@ export const useMascota = (coupleId, puntosTotales, logrosHook, usuarioId = 'use
     if (saved) {
       return { 
         success: true, 
-        mensaje: `¡Comprado ${accesorio.nombre} por ${accesorio.precio} puntos!` 
+        mensaje: `¡${usuarioActual.nombre} compró ${accesorio.nombre} por ${accesorio.precio} puntos!` 
       };
     } else {
       return { success: false, error: 'Error al guardar' };
@@ -286,11 +296,20 @@ export const useMascota = (coupleId, puntosTotales, logrosHook, usuarioId = 'use
   };
 
   // Equipar/des-equipar accesorio
-  const toggleAccesorio = async (accesorioId, equipar = true) => {
+  const toggleAccesorio = async (accesorioId, equipar = true, usuarioActual) => {
+    if (!usuarioActual) {
+      return { success: false, error: 'No hay usuario seleccionado' };
+    }
+
     const nuevaMascota = {
       ...mascota,
       accesorios: (mascota.accesorios || []).map(acc =>
-        acc.id === accesorioId ? { ...acc, equipado: equipar } : acc
+        acc.id === accesorioId ? { 
+          ...acc, 
+          equipado: equipar,
+          ultimoEquipadoPor: usuarioActual.nombre,
+          ultimoEquipadoEn: new Date().toISOString()
+        } : acc
       )
     };
     
@@ -298,41 +317,66 @@ export const useMascota = (coupleId, puntosTotales, logrosHook, usuarioId = 'use
     const saved = await guardarMascota(nuevaMascota);
     
     if (saved) {
-      return { success: true, mensaje: `Accesorio ${equipar ? 'equipado' : 'removido'}` };
+      return { 
+        success: true, 
+        mensaje: `${usuarioActual.nombre} ${equipar ? 'equipó' : 'removió'} el accesorio` 
+      };
     } else {
       return { success: false, error: 'Error al actualizar' };
     }
   };
 
   // Cambiar nombre
-  const cambiarNombre = async (nuevoNombre) => {
+  const cambiarNombre = async (nuevoNombre, usuarioActual) => {
+    if (!usuarioActual) {
+      return { success: false, error: 'No hay usuario seleccionado' };
+    }
+
     if (!nuevoNombre.trim()) {
       return { success: false, error: 'Nombre no puede estar vacío' };
     }
     
-    const nuevaMascota = { ...mascota, nombre: nuevoNombre.trim() };
-    setMascota(nuevaMascota);
-    const saved = await guardarMascota(nuevaMascota);
-    
-    if (saved) {
-      return { success: true, mensaje: `¡Nombre cambiado a ${nuevoNombre.trim()}!` };
-    } else {
-      return { success: false, error: 'Error al guardar' };
-    }
-  };
-
-  // Resetear felicidad
-  const resetearFelicidad = async () => {
-    const nuevaMascota = {
-      ...mascota,
-      felicidad: 0
+    const nuevaMascota = { 
+      ...mascota, 
+      nombre: nuevoNombre.trim(),
+      nombreCambiadoPor: usuarioActual.nombre,
+      nombreCambiadoEn: new Date().toISOString()
     };
     
     setMascota(nuevaMascota);
     const saved = await guardarMascota(nuevaMascota);
     
     if (saved) {
-      return { success: true, mensaje: 'Felicidad reseteada' };
+      return { 
+        success: true, 
+        mensaje: `¡${usuarioActual.nombre} cambió el nombre a ${nuevoNombre.trim()}!` 
+      };
+    } else {
+      return { success: false, error: 'Error al guardar' };
+    }
+  };
+
+  // Resetear felicidad
+  const resetearFelicidad = async (usuarioActual) => {
+    if (!usuarioActual) {
+      return { success: false, error: 'No hay usuario seleccionado' };
+    }
+
+    const nuevaMascota = {
+      ...mascota,
+      felicidad: 0,
+      felicidadResetPor: usuarioActual.nombre,
+      felicidadResetEn: new Date().toISOString()
+    };
+    
+    setMascota(nuevaMascota);
+    const saved = await guardarMascota(nuevaMascota);
+    
+    if (saved) {
+      return { 
+        success: true, 
+        mensaje: `${usuarioActual.nombre} reseteó la felicidad` 
+      };
     } else {
       return { success: false, error: 'Error al resetear' };
     }

@@ -10,7 +10,10 @@ export default function InicioScreen({
   fechaAniversario,
   razonDelDia,
   puntos = 0,
+  usuarioActual, // ✅ NUEVO
+  onCambiarUsuario, // ✅ NUEVO
 }) {
+
   const [diasJuntos, setDiasJuntos] = useState(0);
   const [confeti, setConfeti] = useState(false);
 
@@ -103,7 +106,7 @@ export default function InicioScreen({
         </View>
 
         {/* RAZÓN DEL DÍA */}
-        {razonDelDia && (
+         {razonDelDia && (
           <View style={{
               backgroundColor: colors.primary,
               padding: 16,
@@ -113,7 +116,7 @@ export default function InicioScreen({
               borderColor: "#FFB3D1",
           }}>
             <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700", marginBottom: 6 }}>
-              💝 Razón del día
+              💝 Razón del día {razonDelDia.autor ? `(por ${razonDelDia.autor})` : ''}
             </Text>
             <Text style={{ color: "#fff", fontSize: 15, fontStyle: "italic" }}>
               "{razonDelDia.texto}"
@@ -138,6 +141,8 @@ export default function InicioScreen({
             💕 PLANES V x A 💕
           </Text>
         </View>
+
+        {/* Botón de usuario eliminado aquí, solo se deja el botón fijo en el layout principal */}
 
         {/* SUBTÍTULO */}
         <Text

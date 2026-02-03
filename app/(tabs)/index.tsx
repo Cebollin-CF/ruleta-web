@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-// CORRECCIÓN: Se añade Alert para que funcionen los avisos y AsyncStorage
 import { View, ActivityIndicator, Text, TouchableOpacity, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BarCodeScanner } from 'expo-camera';
@@ -7,10 +6,11 @@ import * as ImagePicker from 'expo-image-picker';
 import { Picker } from '@react-native-picker/picker';
 
 // RUTAS CORREGIDAS:
-import colors from '../utils/colors';  // Desde app/utils/
+import colors from '../utils/colors';
 import { supabase } from '../../supabaseClient';
+import type { Usuario } from '../utils/types';
 
-// Importaciones de mascota (sin duplicados)
+// Importaciones de mascota
 import MascotaScreen from '../screens/MascotaScreen';
 import { useMascota } from '../hooks/useMascota';
 
@@ -29,8 +29,9 @@ import VinculoScreen from '../screens/VinculoScreen';
 import TimelineScreen from '../screens/TimelineScreen';
 import AvatarScreen from '../screens/AvatarScreen';
 import LogrosScreen from '../screens/LogrosScreen';
+import SeleccionarUsuarioScreen from '../screens/SeleccionarUsuarioScreen';
 
-// Hooks personalizados - RUTAS CORREGIDAS:
+// Hooks personalizados
 import { useAppState } from '../hooks/useAppState';
 import { usePlanes } from '../hooks/usePlanes';
 import { useRazones } from '../hooks/useRazones';
@@ -39,7 +40,7 @@ import { useNotas } from '../hooks/useNotas';
 import { useDesafios } from '../hooks/useDesafios';
 import { useLogros } from '../hooks/useLogros';
 
-/// ✅ FUNCIÓN CORREGIDA PARA SUBIR FOTOS
+/// ✅ FUNCIÓN PARA SUBIR FOTOS
 async function uploadPhotoToSupabase(uri: string, coupleId: string, esAvatar = false) {
   try {
     console.log("📸 Iniciando subida de foto...");
@@ -49,12 +50,10 @@ async function uploadPhotoToSupabase(uri: string, coupleId: string, esAvatar = f
     
     const blob = await response.blob();
     
-    // Nombre diferente para avatar
     const fileName = esAvatar 
       ? `${coupleId}/avatar_${Date.now()}.jpg`
       : `${coupleId}/photo_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.jpg`;
 
-    // Subir a Supabase Storage
     const { error: uploadError } = await supabase.storage
       .from("fotos")
       .upload(fileName, blob, {
@@ -68,7 +67,6 @@ async function uploadPhotoToSupabase(uri: string, coupleId: string, esAvatar = f
       throw uploadError;
     }
 
-    // Obtener URL pública
     const { data: publicData } = supabase.storage
       .from("fotos")
       .getPublicUrl(fileName);
@@ -98,20 +96,21 @@ export default function Index() {
     setFechaAniversario,
   } = useAppState();
 
+  // ✅ NUEVO: Estados para usuarios
+  const [usuarioActual, setUsuarioActual] = useState<Usuario | null>(null);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [mostrarSeleccionUsuario, setMostrarSeleccionUsuario] = useState(false);
+
   // Estados adicionales
   const [contenidoCompleto, setContenidoCompleto] = useState<any>(null);
   const [scannerActive, setScannerActive] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [codigoManual, setCodigoManual] = useState('');
 
-  // Hooks para funcionalidades específicas
+  // Hooks para funcionalidades específicas (PASAN usuarioActual)
   const planesHook = usePlanes(coupleId);
-  const razonesHook = useRazones(coupleId);
-  const moodHook = useMoodTracker(
-    coupleId, 
-    contenidoCompleto?.moodHoy, 
-    contenidoCompleto?.historialMoods
-  );
+  const razonesHook = useRazones(coupleId, usuarioActual);
+  const moodHook = useMoodTracker(coupleId, usuarioActual);
   const notasHook = useNotas(coupleId);
   const desafiosHook = useDesafios(coupleId);
   const logrosHook = useLogros(
@@ -120,12 +119,13 @@ export default function Index() {
     contenidoCompleto?.logrosDesbloqueados || []
   );
 
-  // Hook de mascota
+  // Hook de mascota (PASA usuarioActual)
   const mascotaHook = useMascota(
     coupleId, 
     logrosHook.puntos || 0,
     contenidoCompleto?.mascota,
-    logrosHook
+    logrosHook,
+    usuarioActual
   );
 
   // Estados para formularios
@@ -137,6 +137,78 @@ export default function Index() {
   const [planEditandoId, setPlanEditandoId] = useState(null);
   const [notaTexto, setNotaTexto] = useState("");
   const [fechaSeleccionada, setFechaSeleccionada] = useState<string | null>(null);
+
+  // ✅ NUEVO: Cargar usuarios cuando haya coupleId
+  useEffect(() => {
+    if (!coupleId) {
+      setUsuarios([]);
+      setUsuarioActual(null);
+      return;
+    }
+
+    const cargarUsuarios = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('usuarios')
+          .select('*')
+          .eq('couple_id', coupleId)
+          .order('usuario_numero', { ascending: true });
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          setUsuarios(data);
+          
+          // Intentar recuperar usuario seleccionado anteriormente
+          const usuarioGuardado = await AsyncStorage.getItem('usuario_actual');
+          if (usuarioGuardado) {
+            const usuario = data.find(u => u.id === usuarioGuardado);
+            if (usuario) {
+              setUsuarioActual(usuario);
+              return;
+            }
+          }
+          
+          // Si no hay usuario guardado, seleccionar el primero
+          setUsuarioActual(data[0]);
+        } else {
+          // Crear usuarios por defecto si no existen
+          const nuevosUsuarios = [
+            {
+              couple_id: coupleId,
+              nombre: 'Usuario 1',
+              avatar_url: null,
+              usuario_numero: 1
+            },
+            {
+              couple_id: coupleId,
+              nombre: 'Usuario 2',
+              avatar_url: null,
+              usuario_numero: 2
+            }
+          ];
+
+          const { data: usuariosCreados, error: errorCrear } = await supabase
+            .from('usuarios')
+            .insert(nuevosUsuarios)
+            .select();
+
+          if (errorCrear) throw errorCrear;
+
+          if (usuariosCreados) {
+            setUsuarios(usuariosCreados);
+            setUsuarioActual(usuariosCreados[0]);
+            await AsyncStorage.setItem('usuario_actual', usuariosCreados[0].id);
+          }
+        }
+      } catch (error) {
+        console.error('Error cargando usuarios:', error);
+        mostrarToast('Error cargando usuarios', 'error');
+      }
+    };
+
+    cargarUsuarios();
+  }, [coupleId]);
 
   // Cargar contenido desde Supabase
   useEffect(() => {
@@ -152,7 +224,6 @@ export default function Index() {
       if (data?.contenido) {
         setContenidoCompleto(data.contenido);
         
-        // Inicializar hooks con datos cargados
         planesHook.setPlanes(data.contenido.planes || []);
         planesHook.setPlanesPorDia(data.contenido.planesPorDia || {});
         razonesHook.setRazones(data.contenido.razones || []);
@@ -169,6 +240,40 @@ export default function Index() {
 
     cargarContenido();
   }, [coupleId]);
+
+  // ✅ NUEVO: Función para cambiar de usuario
+  const cambiarUsuario = async (usuario: Usuario) => {
+    setUsuarioActual(usuario);
+    await AsyncStorage.setItem('usuario_actual', usuario.id);
+    setMostrarSeleccionUsuario(false);
+    mostrarToast(`Hola ${usuario.nombre} 👋`);
+  };
+
+  // ✅ NUEVO: Función para actualizar perfil de usuario
+  const actualizarUsuario = async (usuarioId: string, datos: Partial<Usuario>) => {
+    try {
+      const { error } = await supabase
+        .from('usuarios')
+        .update(datos)
+        .eq('id', usuarioId);
+
+      if (error) throw error;
+
+      // Actualizar estado local
+      setUsuarios(prev => prev.map(u => 
+        u.id === usuarioId ? { ...u, ...datos } : u
+      ));
+      
+      if (usuarioActual?.id === usuarioId) {
+        setUsuarioActual(prev => prev ? { ...prev, ...datos } : null);
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error actualizando usuario:', error);
+      return { success: false, error };
+    }
+  };
 
   // Sincronización en tiempo real con Supabase
   useEffect(() => {
@@ -187,7 +292,6 @@ export default function Index() {
         (payload) => {
           if (payload.new?.contenido) {
             setContenidoCompleto(payload.new.contenido);
-            // Actualizar hooks con nuevos datos
             planesHook.setPlanes(payload.new.contenido.planes || []);
             planesHook.setPlanesPorDia(payload.new.contenido.planesPorDia || {});
             razonesHook.setRazones(payload.new.contenido.razones || []);
@@ -209,59 +313,33 @@ export default function Index() {
     };
   }, [coupleId]);
 
-  // ✅ FUNCIÓN CORREGIDA PARA SUBIR AVATAR
-  const subirAvatar = async (uri: string) => {
-    if (!coupleId) {
-      mostrarToast("❌ No hay pareja vinculada", "error");
+  // ✅ FUNCIÓN PARA SUBIR AVATAR DE USUARIO
+  const subirAvatarUsuario = async (uri: string, usuarioId: string) => {
+    if (!coupleId || !usuarioId) {
+      mostrarToast("❌ No hay usuario seleccionado", "error");
       return;
     }
 
     mostrarToast("📸 Subiendo foto...", "info");
 
     try {
-      const url = await uploadPhotoToSupabase(uri, coupleId, true); // true = es avatar
+      const url = await uploadPhotoToSupabase(uri, `${coupleId}_${usuarioId}`, true);
       
       if (!url) {
         mostrarToast("❌ Error al subir foto", "error");
         return;
       }
 
-      // Obtener contenido actual
-      const { data: registro } = await supabase
-        .from("app_state")
-        .select("contenido")
-        .eq("id", coupleId)
-        .single();
-
-      const contenidoActual = registro?.contenido || {};
-
-      // Actualizar en Supabase
-      const { error } = await supabase
-        .from("app_state")
-        .update({
-          contenido: {
-            ...contenidoActual,
-            avatarUrl: url,
-          },
-        })
-        .eq("id", coupleId);
-
-      if (error) {
-        console.error("Error guardando avatar:", error);
+      const resultado = await actualizarUsuario(usuarioId, { avatar_url: url });
+      
+      if (resultado.success) {
+        mostrarToast("✅ Foto de perfil actualizada ✨");
+      } else {
         mostrarToast("❌ Error al guardar foto", "error");
-        return;
       }
-
-      // Actualizar estado local
-      setContenidoCompleto(prev => ({
-        ...prev,
-        avatarUrl: url
-      }));
-
-      mostrarToast("✅ Foto de perfil actualizada ✨");
       
     } catch (err) {
-      console.error("Error en subirAvatar:", err);
+      console.error("Error en subirAvatarUsuario:", err);
       mostrarToast("❌ Error al guardar foto", "error");
     }
   };
@@ -370,6 +448,19 @@ export default function Index() {
 
   // Renderizar pantalla actual
   const renderScreen = () => {
+    // ✅ NUEVO: Pantalla de selección de usuario
+    if (mostrarSeleccionUsuario) {
+      return (
+        <SeleccionarUsuarioScreen
+          usuarios={usuarios}
+          onSeleccionarUsuario={cambiarUsuario}
+          setView={() => setMostrarSeleccionUsuario(false)}
+          actualizarUsuario={actualizarUsuario}
+          subirAvatarUsuario={subirAvatarUsuario}
+        />
+      );
+    }
+
     switch (view) {
       case 'vinculo':
         return (
@@ -398,6 +489,8 @@ export default function Index() {
             razonDelDia={razonesHook.razonDelDia}
             avatarUrl={contenidoCompleto?.avatarUrl}
             puntos={logrosHook.puntos}
+            usuarioActual={usuarioActual}
+            onCambiarUsuario={() => setMostrarSeleccionUsuario(true)}
           />
         );
 
@@ -407,7 +500,8 @@ export default function Index() {
             setView={setView}
             mascotaHook={mascotaHook}
             puntosTotales={logrosHook.puntos || 0}
-            mostrarToast={mostrarToast} // ✅ AÑADIDA ESTA PROP
+            mostrarToast={mostrarToast}
+            usuarioActual={usuarioActual}
           />
         );
 
@@ -436,6 +530,7 @@ export default function Index() {
             }}
             editarRazon={razonesHook.editarRazon}
             razonDelDia={razonesHook.razonDelDia}
+            usuarioActual={usuarioActual}
           />
         );
 
@@ -443,11 +538,12 @@ export default function Index() {
         return (
           <MoodTrackerScreen
             setView={setView}
-            registrarMood={moodHook.registrarMood}
+            registrarMood={(mood) => moodHook.registrarMood(mood)}
             historialMoods={moodHook.historialMoods}
             moodHoy={moodHook.moodHoy}
             eliminarMood={moodHook.eliminarMood}
             cambiarMoodHoy={moodHook.cambiarMoodHoy}
+            usuarioActual={usuarioActual}
           />
         );
 
@@ -731,6 +827,7 @@ export default function Index() {
               }
               return success;
             }}
+            usuarioActual={usuarioActual}
           />
         );
 
@@ -774,7 +871,7 @@ export default function Index() {
           <AvatarScreen
             setView={setView}
             avatarUrl={contenidoCompleto?.avatarUrl}
-            subirAvatar={subirAvatar}
+            subirAvatar={(uri) => subirAvatar(uri)}
           />
         );
 
@@ -815,35 +912,73 @@ export default function Index() {
     }
   };
 
+  // Mostrar loading si no hay usuario seleccionado pero sí coupleId
+  if (coupleId && !usuarioActual && usuarios.length > 0) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bgTop }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ color: colors.text, marginTop: 20 }}>Cargando usuario...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1 }}>
       {renderScreen()}
 
       {/* Botón flotante de estadísticas - SOLO EN INICIO */}
       {view === 'inicio' && (
-        <TouchableOpacity
-          onPress={() => setView("estadisticas")}
-          style={{
-            position: "absolute",
-            bottom: 20,
-            left: 20,
-            backgroundColor: colors.primary,
-            width: 50,
-            height: 50,
-            borderRadius: 12,
-            justifyContent: "center",
-            alignItems: "center",
-            shadowColor: "#000",
-            shadowOpacity: 0.2,
-            shadowRadius: 6,
-            elevation: 5,
-            borderWidth: 2,
-            borderColor: "#FFB3D1",
-            zIndex: 100,
-          }}
-        >
-          <Text style={{ fontSize: 24, color: "white" }}>📊</Text>
-        </TouchableOpacity>
+        <>
+          <TouchableOpacity
+            onPress={() => setView("estadisticas")}
+            style={{
+              position: "absolute",
+              bottom: 20,
+              left: 20,
+              backgroundColor: colors.primary,
+              width: 50,
+              height: 50,
+              borderRadius: 12,
+              justifyContent: "center",
+              alignItems: "center",
+              shadowColor: "#000",
+              shadowOpacity: 0.2,
+              shadowRadius: 6,
+              elevation: 5,
+              borderWidth: 2,
+              borderColor: "#FFB3D1",
+              zIndex: 100,
+            }}
+          >
+            <Text style={{ fontSize: 24, color: "white" }}>📊</Text>
+          </TouchableOpacity>
+
+          {/* ✅ NUEVO: Botón para cambiar usuario */}
+          {usuarioActual && (
+            <TouchableOpacity
+              onPress={() => setMostrarSeleccionUsuario(true)}
+              style={{
+                position: "absolute",
+                top: 40,
+                right: 20,
+                backgroundColor: colors.card,
+                paddingVertical: 8,
+                paddingHorizontal: 15,
+                borderRadius: 20,
+                flexDirection: "row",
+                alignItems: "center",
+                borderWidth: 2,
+                borderColor: colors.primary,
+                zIndex: 100,
+              }}
+            >
+              <Text style={{ color: colors.text, fontWeight: "700", marginRight: 8 }}>
+                {usuarioActual.nombre}
+              </Text>
+              <Text>👤</Text>
+            </TouchableOpacity>
+          )}
+        </>
       )}
 
       {/* Toast simple */}

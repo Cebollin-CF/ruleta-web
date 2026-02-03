@@ -1,7 +1,35 @@
 import React, { useState, useCallback } from "react";
-import { Text, TextInput, TouchableOpacity, View, StyleSheet } from "react-native";
+import { 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  View, 
+  StyleSheet, 
+  Alert,
+  ScrollView 
+} from "react-native";
 import Container from "../components/Container";
 import colors from "../utils/colors";
+
+interface Nota {
+  id: string;
+  texto: string;
+  categoria: string;
+  fecha: string;
+  usuario?: string;
+  usuarioId?: string;
+}
+
+interface NotasScreenProps {
+  setView: (view: string) => void;
+  notaTexto: string;
+  setNotaTexto: (texto: string) => void;
+  notas: Nota[];
+  guardarNota: (texto: string, categoria: string) => Promise<boolean>;
+  eliminarNota: (notaId: string) => Promise<boolean>;
+  editarNota: (notaId: string, texto: string, categoria: string) => Promise<boolean>;
+  usuarioActual: any;
+}
 
 export default React.memo(function NotasScreen({
   setView,
@@ -11,9 +39,10 @@ export default React.memo(function NotasScreen({
   guardarNota,
   eliminarNota,
   editarNota,
-}) {
+  usuarioActual,
+}: NotasScreenProps) {
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("💭 General");
-  const [editandoId, setEditandoId] = useState(null);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
 
   const categorias = [
     { emoji: "💭", nombre: "General", color: "#8B5CF6" },
@@ -22,20 +51,86 @@ export default React.memo(function NotasScreen({
     { emoji: "📌", nombre: "Importante", color: "#FF6B6B" },
   ];
 
-  const guardarNotaConCategoria = useCallback(() => {
-    if (!notaTexto.trim()) return;
+  const guardarNotaConCategoria = useCallback(async () => {
+    if (!notaTexto.trim()) {
+      Alert.alert("Campo vacío", "Escribe una nota primero");
+      return;
+    }
+
+    if (!usuarioActual) {
+      Alert.alert(
+        "Usuario no seleccionado",
+        "Por favor, selecciona un usuario primero para agregar una nota",
+        [{ text: "OK" }]
+      );
+      return;
+    }
 
     if (editandoId) {
-      editarNota(editandoId, notaTexto, categoriaSeleccionada);
-      setEditandoId(null);
+      const success = await editarNota(editandoId, notaTexto, categoriaSeleccionada);
+      if (success) {
+        setEditandoId(null);
+        setNotaTexto("");
+        setCategoriaSeleccionada("💭 General");
+      }
     } else {
-      guardarNota(notaTexto, categoriaSeleccionada);
+      const success = await guardarNota(notaTexto, categoriaSeleccionada);
+      if (success) {
+        setNotaTexto("");
+        setCategoriaSeleccionada("💭 General");
+      }
     }
+  }, [notaTexto, editandoId, categoriaSeleccionada, usuarioActual, guardarNota, editarNota]);
+
+  const handleEliminarNota = useCallback(async (notaId: string, nota: Nota) => {
+    // Verificar si el usuario actual es el autor de la nota
+    if (usuarioActual && nota.usuarioId !== usuarioActual.id) {
+      Alert.alert(
+        "No autorizado",
+        "Solo el autor puede eliminar esta nota",
+        [{ text: "Entendido" }]
+      );
+      return;
+    }
+
+    Alert.alert(
+      "Eliminar nota",
+      "¿Estás seguro de que quieres eliminar esta nota?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            await eliminarNota(notaId);
+          },
+        },
+      ]
+    );
+  }, [usuarioActual, eliminarNota]);
+
+  const iniciarEdicion = useCallback((nota: Nota) => {
+    if (usuarioActual && nota.usuarioId !== usuarioActual.id) {
+      Alert.alert(
+        "No autorizado",
+        "Solo el autor puede editar esta nota",
+        [{ text: "Entendido" }]
+      );
+      return;
+    }
+    
+    setEditandoId(nota.id);
+    setNotaTexto(nota.texto);
+    setCategoriaSeleccionada(nota.categoria || "💭 General");
+  }, [usuarioActual, setNotaTexto]);
+
+  const cancelarEdicion = useCallback(() => {
+    setEditandoId(null);
     setNotaTexto("");
     setCategoriaSeleccionada("💭 General");
-  }, [notaTexto, editandoId, categoriaSeleccionada]);
+  }, [setNotaTexto]);
 
-  const renderNota = useCallback(({ item: n }) => {
+  const renderNota = useCallback((n: Nota, index: number) => {
     const cat = categorias.find((c) => n.categoria?.includes(c.nombre));
     
     return (
@@ -46,46 +141,75 @@ export default React.memo(function NotasScreen({
           { backgroundColor: cat?.color || "#8B5CF6" }
         ]}
       >
-        <Text style={styles.notaCategoria}>
-          {n.categoria || "💭 General"}
-        </Text>
+        <View style={styles.notaHeader}>
+          <Text style={styles.notaCategoria}>
+            {n.categoria || "💭 General"}
+          </Text>
+          
+          {usuarioActual && n.usuarioId === usuarioActual.id && (
+            <Text style={styles.notaPropia}>
+              (Tú)
+            </Text>
+          )}
+        </View>
 
         <Text style={styles.notaTexto}>
           {n.texto}
         </Text>
 
-        <Text style={styles.notaFecha}>
-          {new Date(n.fecha).toLocaleDateString()}
-        </Text>
+        <View style={styles.notaFooter}>
+          <Text style={styles.notaFecha}>
+            {new Date(n.fecha).toLocaleDateString()}
+          </Text>
+          
+          {n.usuario && (
+            <Text style={styles.notaUsuario}>
+              Por: {n.usuario}
+            </Text>
+          )}
+        </View>
 
         <View style={styles.notaBotones}>
-          <TouchableOpacity
-            onPress={() => {
-              setNotaTexto(n.texto);
-              setCategoriaSeleccionada(n.categoria || "💭 General");
-              setEditandoId(n.id);
-            }}
-            style={styles.botonEditar}
-          >
-            <Text style={styles.botonTexto}>✏️ Editar</Text>
-          </TouchableOpacity>
+          {(!usuarioActual || n.usuarioId === usuarioActual.id) ? (
+            <>
+              <TouchableOpacity
+                onPress={() => iniciarEdicion(n)}
+                style={styles.botonEditar}
+              >
+                <Text style={styles.botonTexto}>✏️ Editar</Text>
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => eliminarNota(n.id)}
-            style={styles.botonEliminar}
-          >
-            <Text style={styles.botonTexto}>🗑️ Borrar</Text>
-          </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handleEliminarNota(n.id, n)}
+                style={styles.botonEliminar}
+              >
+                <Text style={styles.botonTexto}>🗑️ Borrar</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <Text style={styles.notaSoloAutor}>
+              Solo {n.usuario} puede editar
+            </Text>
+          )}
         </View>
       </View>
     );
-  }, [categorias, setNotaTexto, setCategoriaSeleccionada]);
+  }, [categorias, usuarioActual, iniciarEdicion, handleEliminarNota]);
 
   return (
     <Container>
       <Text style={styles.titulo}>
         📝 Notas de pareja
       </Text>
+
+      {/* Indicador de usuario actual */}
+      {usuarioActual && (
+        <View style={styles.usuarioContainer}>
+          <Text style={styles.usuarioTexto}>
+            Escribiendo como: <Text style={styles.usuarioNombre}>{usuarioActual.nombre}</Text>
+          </Text>
+        </View>
+      )}
 
       {/* Selector de categorías */}
       <View style={styles.categoriasContainer}>
@@ -114,36 +238,80 @@ export default React.memo(function NotasScreen({
       </View>
 
       {/* Input de nota */}
-      <TextInput
-        placeholder={`Escribe una nota (${categoriaSeleccionada})...`}
-        placeholderTextColor={colors.muted}
-        value={notaTexto}
-        onChangeText={setNotaTexto}
-        multiline
-        style={styles.inputNota}
-      />
-
-      <TouchableOpacity
-        onPress={guardarNotaConCategoria}
-        style={styles.botonGuardar}
-      >
-        <Text style={styles.botonGuardarTexto}>
-          {editandoId ? "💾 Guardar cambios" : "💌 Guardar nota"}
-        </Text>
-      </TouchableOpacity>
-
-      {/* Lista de notas OPTIMIZADA */}
-      <View style={styles.listaContainer}>
-        {notas.length === 0 ? (
-          <Text style={styles.sinNotas}>
-            Aún no hay notas. ¡Escribe la primera! 💕
+      {!usuarioActual ? (
+        <View style={styles.sinUsuarioContainer}>
+          <Text style={styles.sinUsuarioTitulo}>
+            ⚠️ Usuario no seleccionado
           </Text>
-        ) : (
-          notas.map((n, index) => renderNota({ item: n, index }))
-        )}
-      </View>
+          <Text style={styles.sinUsuarioTexto}>
+            Para agregar una nota, primero selecciona un usuario desde la pantalla de inicio.
+          </Text>
+          <TouchableOpacity
+            onPress={() => setView("inicio")}
+            style={styles.botonIrInicio}
+          >
+            <Text style={styles.botonIrInicioTexto}>Ir a inicio</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <>
+          <TextInput
+            placeholder={`Escribe una nota (${categoriaSeleccionada})...`}
+            placeholderTextColor={colors.muted}
+            value={notaTexto}
+            onChangeText={setNotaTexto}
+            multiline
+            style={styles.inputNota}
+          />
 
-      {/* Botón flotante */}
+          <View style={styles.botonesAccion}>
+            {editandoId && (
+              <TouchableOpacity
+                onPress={cancelarEdicion}
+                style={styles.botonCancelar}
+              >
+                <Text style={styles.botonCancelarTexto}>❌ Cancelar</Text>
+              </TouchableOpacity>
+            )}
+            
+            <TouchableOpacity
+              onPress={guardarNotaConCategoria}
+              style={styles.botonGuardar}
+            >
+              <Text style={styles.botonGuardarTexto}>
+                {editandoId ? "💾 Guardar cambios" : "💌 Guardar nota"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
+
+      {/* Lista de notas */}
+      <ScrollView style={styles.listaContainer} contentContainerStyle={styles.listaContent}>
+        <Text style={styles.listaTitulo}>
+          Notas ({notas.length})
+        </Text>
+
+        {notas.length === 0 ? (
+          <View style={styles.sinNotasContainer}>
+            <Text style={styles.sinNotasEmoji}>📝</Text>
+            <Text style={styles.sinNotas}>
+              {usuarioActual 
+                ? `${usuarioActual.nombre}, aún no has escrito notas`
+                : "Aún no hay notas. ¡Escribe la primera!"}
+            </Text>
+            {!usuarioActual && (
+              <Text style={styles.sinNotasSubtexto}>
+                Selecciona un usuario para empezar
+              </Text>
+            )}
+          </View>
+        ) : (
+          notas.map((n, index) => renderNota(n, index))
+        )}
+      </ScrollView>
+
+      {/* Botón volver */}
       <TouchableOpacity
         onPress={() => setView("inicio")}
         style={styles.botonVolver}
@@ -161,13 +329,32 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontSize: 32,
     fontWeight: "800",
-    marginBottom: 20,
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  usuarioContainer: {
+    backgroundColor: colors.card,
+    padding: 10,
+    borderRadius: 15,
+    marginBottom: 15,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  usuarioTexto: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  usuarioNombre: {
+    color: colors.primary,
   },
   categoriasContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     marginBottom: 15,
     gap: 8,
+    justifyContent: 'center',
   },
   categoriaBoton: {
     paddingVertical: 10,
@@ -179,6 +366,38 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "700",
     fontSize: 14,
+  },
+  sinUsuarioContainer: {
+    backgroundColor: colors.card,
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 15,
+    borderWidth: 2,
+    borderColor: colors.warning,
+    alignItems: 'center',
+  },
+  sinUsuarioTitulo: {
+    color: colors.warning,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  sinUsuarioTexto: {
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 15,
+    fontSize: 14,
+  },
+  botonIrInicio: {
+    backgroundColor: colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+  },
+  botonIrInicioTexto: {
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
   inputNota: {
     backgroundColor: colors.card,
@@ -192,24 +411,71 @@ const styles = StyleSheet.create({
     borderColor: "#6B5577",
     fontSize: 16,
   },
+  botonesAccion: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 20,
+  },
   botonGuardar: {
+    flex: 1,
     backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: 20,
     alignItems: "center",
-    marginBottom: 20,
     borderWidth: 2,
     borderColor: "#FFB3D1",
+  },
+  botonCancelar: {
+    backgroundColor: colors.muted,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: colors.muted,
   },
   botonGuardarTexto: {
     color: "#FFFFFF",
     fontWeight: "700",
     fontSize: 16,
   },
+  botonCancelarTexto: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 14,
+  },
   listaContainer: {
     flex: 1,
     marginTop: 10,
+  },
+  listaContent: {
     paddingBottom: 100,
+  },
+  listaTitulo: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 10,
+  },
+  sinNotasContainer: {
+    alignItems: 'center',
+    marginTop: 30,
+  },
+  sinNotasEmoji: {
+    fontSize: 50,
+    marginBottom: 15,
+  },
+  sinNotas: {
+    color: colors.muted,
+    textAlign: "center",
+    marginBottom: 5,
+    fontSize: 16,
+    paddingHorizontal: 20,
+  },
+  sinNotasSubtexto: {
+    color: colors.muted,
+    textAlign: "center",
+    fontSize: 14,
   },
   notaContainer: {
     padding: 16,
@@ -218,11 +484,21 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#FFFFFF30",
   },
+  notaHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   notaCategoria: {
     color: "#FFFFFF",
     fontWeight: "700",
     fontSize: 14,
-    marginBottom: 6,
+  },
+  notaPropia: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '700',
   },
   notaTexto: {
     color: "#FFFFFF",
@@ -230,10 +506,18 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     lineHeight: 22,
   },
+  notaFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
   notaFecha: {
     color: "#FFFFFFB3",
     fontSize: 12,
-    marginBottom: 12,
+  },
+  notaUsuario: {
+    color: "#FFFFFFB3",
+    fontSize: 12,
   },
   notaBotones: {
     flexDirection: "row",
@@ -259,12 +543,12 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 12,
   },
-  sinNotas: {
+  notaSoloAutor: {
     color: colors.muted,
-    textAlign: "center",
-    marginTop: 40,
-    fontSize: 16,
-    paddingHorizontal: 20,
+    fontSize: 11,
+    textAlign: 'center',
+    flex: 1,
+    fontStyle: 'italic',
   },
   botonVolver: {
     position: "absolute",
