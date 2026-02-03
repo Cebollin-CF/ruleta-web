@@ -6,7 +6,6 @@ node_modules/
 .expo-shared/
 
 # Web build
-dist/
 web-build/
 build/
 
