@@ -10,15 +10,37 @@ export const useRazones = (coupleId, usuarioActual) => {
     if (!coupleId) return false;
 
     try {
-      await supabase
+      // Obtener el contenido actual para no sobreescribir otros datos (planes, fotos, etc.)
+      const { data: registro, error: fetchError } = await supabase
         .from('app_state')
-        .update({
-          contenido: {
-            razones: nuevasRazones,
-            razonDelDia: nuevaRazonDelDia !== null ? nuevaRazonDelDia : razonDelDia,
-          },
-        })
+        .select('contenido')
+        .eq('id', coupleId)
+        .single();
+
+      if (fetchError) {
+        console.error('❌ Error obteniendo contenido actual:', fetchError);
+        return false;
+      }
+
+      const contenidoPrevio = registro?.contenido || {};
+      const contenidoActualizado = {
+        ...contenidoPrevio,
+        razones: nuevasRazones,
+        razonDelDia: nuevaRazonDelDia !== null
+          ? nuevaRazonDelDia
+          : (contenidoPrevio.razonDelDia ?? razonDelDia),
+      };
+
+      const { error: updateError } = await supabase
+        .from('app_state')
+        .update({ contenido: contenidoActualizado })
         .eq('id', coupleId);
+
+      if (updateError) {
+        console.error('❌ Error actualizando razones:', updateError);
+        return false;
+      }
+
       return true;
     } catch (err) {
       console.error('Error actualizando razones:', err);
