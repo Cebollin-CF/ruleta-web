@@ -14,6 +14,8 @@ import { supabase } from "../../supabaseClient";
 import Boton from "../components/Boton";
 import Container from "../components/Container";
 import colors from "../utils/colors";
+import ImageViewer from "../components/ImageViewer";
+import { useState } from "react";
 
 export default function ReviewScreen({
   setView,
@@ -29,6 +31,7 @@ export default function ReviewScreen({
   eliminarPlanEnFecha,
   mostrarToast,
 }) {
+  const [selectedImage, setSelectedImage] = useState(null);
   const getPlanInfo = (planId) => planes.find((p) => p.id === planId);
 
   const marcarComoCompletado = async (planId, indexEnDia) => {
@@ -290,7 +293,7 @@ export default function ReviewScreen({
                 onPress={() => subirFoto(i)}
               />
 
-              {/* GALERÍA DE FOTOS con opción de borrar */}
+              {/* GALERÍA DE FOTOS con opción de borrar y ver */}
               {(p.fotos || []).length > 0 && (
                 <ScrollView horizontal style={{ marginTop: 10 }}>
                   {(p.fotos || []).map((fotoUrl, idx) => (
@@ -301,14 +304,16 @@ export default function ReviewScreen({
                         position: "relative",
                       }}
                     >
-                      <Image
-                        source={{ uri: fotoUrl }}
-                        style={{
-                          width: 80,
-                          height: 80,
-                          borderRadius: 16,
-                        }}
-                      />
+                      <TouchableOpacity onPress={() => setSelectedImage(fotoUrl)} activeOpacity={0.8}>
+                        <Image
+                          source={{ uri: fotoUrl }}
+                          style={{
+                            width: 80,
+                            height: 80,
+                            borderRadius: 16,
+                          }}
+                        />
+                      </TouchableOpacity>
                       {/* Botón X para borrar foto */}
                       <TouchableOpacity
                         onPress={() => eliminarFoto(i, idx)}
@@ -338,6 +343,12 @@ export default function ReviewScreen({
           );
         })}
       </ScrollView>
+
+      <ImageViewer
+        visible={!!selectedImage}
+        imageUrl={selectedImage}
+        onClose={() => setSelectedImage(null)}
+      />
 
       {/* Botón flotante */}
       <TouchableOpacity

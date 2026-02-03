@@ -1,21 +1,28 @@
-import React from "react";
+import React, { useState } from "react";
 import { Text, ScrollView, Image, View, TouchableOpacity } from "react-native";
-import Container from "../components/Container"; // ❌ Quitamos Moti
+import Container from "../components/Container";
 import colors from "../utils/colors";
+import ImageViewer from "../components/ImageViewer";
 
 export default function TimelineScreen({ setView, eventos }) {
+  const [selectedImage, setSelectedImage] = useState(null);
   return (
     <Container>
-      <Text style={{ 
-        color: colors.accent, 
-        fontSize: 32, 
-        fontWeight: "800", 
-        marginBottom: 20 
+      <ImageViewer
+        visible={!!selectedImage}
+        imageUrl={selectedImage}
+        onClose={() => setSelectedImage(null)}
+      />
+      <Text style={{
+        color: colors.accent,
+        fontSize: 32,
+        fontWeight: "800",
+        marginBottom: 20
       }}>
         📜 Recuerdos juntos
       </Text>
 
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={{ paddingBottom: 100 }}
         removeClippedSubviews={true}
       >
@@ -32,11 +39,11 @@ export default function TimelineScreen({ setView, eventos }) {
             }}
           >
             {/* Fecha */}
-            <Text style={{ 
-              color: colors.accent, 
-              fontSize: 14, 
-              fontWeight: "700", 
-              marginBottom: 6 
+            <Text style={{
+              color: colors.accent,
+              fontSize: 14,
+              fontWeight: "700",
+              marginBottom: 6
             }}>
               📅 {new Date(ev.fecha).toLocaleDateString("es-ES", {
                 weekday: "long",
@@ -47,22 +54,22 @@ export default function TimelineScreen({ setView, eventos }) {
             </Text>
 
             {/* Título */}
-            <Text style={{ 
+            <Text style={{
               color: "#FFFFFF",
-              fontSize: 20, 
-              fontWeight: "800", 
-              marginBottom: 8 
+              fontSize: 20,
+              fontWeight: "800",
+              marginBottom: 8
             }}>
               {ev.titulo || "Plan sin título"}
             </Text>
 
             {/* Opinión */}
             {ev.opinion && (
-              <Text style={{ 
+              <Text style={{
                 color: "#FFFFFF",
-                fontSize: 14, 
-                marginBottom: 10, 
-                fontStyle: "italic" 
+                fontSize: 14,
+                marginBottom: 10,
+                fontStyle: "italic"
               }}>
                 💭 "{ev.opinion}"
               </Text>
@@ -71,10 +78,10 @@ export default function TimelineScreen({ setView, eventos }) {
             {/* Puntuación */}
             {ev.puntaje > 0 && (
               <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
-                <Text style={{ 
-                  color: colors.warning, 
-                  fontSize: 16, 
-                  fontWeight: "700" 
+                <Text style={{
+                  color: colors.warning,
+                  fontSize: 16,
+                  fontWeight: "700"
                 }}>
                   ⭐ {ev.puntaje}/10
                 </Text>
@@ -83,24 +90,29 @@ export default function TimelineScreen({ setView, eventos }) {
 
             {/* Fotos */}
             {ev.fotos && ev.fotos.length > 0 && (
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false} 
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
                 style={{ marginTop: 10 }}
               >
                 {ev.fotos.map((url, i) => (
-                  <Image
+                  <TouchableOpacity
                     key={i}
-                    source={{ uri: url }}
-                    style={{
-                      width: 100,
-                      height: 100,
-                      borderRadius: 16,
-                      marginRight: 8,
-                      borderWidth: 2,
-                      borderColor: colors.primary,
-                    }}
-                  />
+                    onPress={() => setSelectedImage(url)}
+                    activeOpacity={0.8}
+                  >
+                    <Image
+                      source={{ uri: url }}
+                      style={{
+                        width: 100,
+                        height: 100,
+                        borderRadius: 16,
+                        marginRight: 8,
+                        borderWidth: 2,
+                        borderColor: colors.primary,
+                      }}
+                    />
+                  </TouchableOpacity>
                 ))}
               </ScrollView>
             )}
@@ -108,11 +120,11 @@ export default function TimelineScreen({ setView, eventos }) {
         ))}
 
         {eventos.length === 0 && (
-          <Text style={{ 
-            color: colors.muted, 
-            textAlign: "center", 
-            marginTop: 40, 
-            fontSize: 16 
+          <Text style={{
+            color: colors.muted,
+            textAlign: "center",
+            marginTop: 40,
+            fontSize: 16
           }}>
             Aún no hay recuerdos guardados. ¡Empezad a crear planes juntos! 💕
           </Text>

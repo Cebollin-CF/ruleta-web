@@ -34,8 +34,9 @@ export default function NuevoPlanScreen({
   notas,
   setPlanActual,
   setIntentosRuleta,
-  planTieneFecha, // ✅ Recibido del hook
-  usuarioActual, // ✅ Recibido para guardar creador
+  planTieneFecha,
+  usuarioActual,
+  guardarPlanesPorDia, // ✅ RECIBIDA
 }) {
   const guardarPlan = () => {
     if (!titulo.trim()) return;
@@ -91,26 +92,43 @@ export default function NuevoPlanScreen({
 
   };
 
-  // ✅ FUNCIÓN PARA MOVER PLAN DE "CON FECHA" A "PENDIENTE"
-  const moverAPendiente = (planId) => {
-    // Eliminar el plan de todas las fechas
-    const nuevosPlanesPorDia = { ...planesPorDia };
+  // ✅ FUNCIÓN CORREGIDA: Actualiza estado local instantáneamente
+  const moverAPendiente = async (planId) => {
+    console.log("moverAPendiente llamado para plan:", planId);
+
+    // Copia profunda simple para evitar problemas de referencia
+    const nuevosPlanesPorDia = JSON.parse(JSON.stringify(planesPorDia || {}));
+    let fechaAfectada = null;
+
     Object.keys(nuevosPlanesPorDia).forEach((fecha) => {
-      nuevosPlanesPorDia[fecha] = nuevosPlanesPorDia[fecha].filter(
-        (p) => p.planId !== planId
-      );
+      const listaOriginal = nuevosPlanesPorDia[fecha];
+      const nuevaLista = listaOriginal.filter((p) => p.planId !== planId);
+
+      if (nuevaLista.length < listaOriginal.length) {
+        fechaAfectada = fecha;
+        nuevosPlanesPorDia[fecha] = nuevaLista;
+      }
+
       if (nuevosPlanesPorDia[fecha].length === 0) {
         delete nuevosPlanesPorDia[fecha];
       }
     });
 
-    // Actualizar en Supabase
-    supabase
-      .from("app_state")
-      .update({
-        contenido: { planes, planesPorDia: nuevosPlanesPorDia, notas },
-      })
-      .eq("id", coupleId);
+    if (fechaAfectada) {
+      if (typeof guardarPlanesPorDia === 'function') {
+        // Usar la función del hook que actualiza localmente Y Supabase
+        await guardarPlanesPorDia(fechaAfectada, nuevosPlanesPorDia[fechaAfectada] || []);
+      } else {
+        console.error("guardarPlanesPorDia NO es una función");
+        // Fallback
+        supabase
+          .from("app_state")
+          .update({
+            contenido: { planes, planesPorDia: nuevosPlanesPorDia, notas },
+          })
+          .eq("id", coupleId);
+      }
+    }
   };
 
   // ✅ FUNCIÓN PARA MARCAR COMO COMPLETADO DESDE "CON FECHA"

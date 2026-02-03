@@ -123,8 +123,9 @@ export default function Index() {
   const mascotaHook = useMascota(
     coupleId,
     logrosHook.puntos || 0,
-    logrosHook,
-    usuarioActual
+    contenidoCompleto?.mascota,
+    contenidoCompleto?.ultimaActualizacionDesafio || null,
+    contenidoCompleto?.intentosCambio || 0
   );
 
   // Estados para formularios
@@ -227,11 +228,12 @@ export default function Index() {
         planesHook.setPlanesPorDia(data.contenido.planesPorDia || {});
         razonesHook.setRazones(data.contenido.razones || []);
         razonesHook.setRazonDelDia(data.contenido.razonDelDia || null);
-        moodHook.setHistorialMoods(data.contenido.historialMoods || []);
-        moodHook.setMoodHoy(data.contenido.moodHoy || {});
+        // moodHook state is managed internally by the hook now
         notasHook.setNotas(data.contenido.notas || []);
         desafiosHook.setDesafioActual(data.contenido.desafioActual || null);
         desafiosHook.setProgresoDesafio(data.contenido.progresoDesafio || 0);
+        desafiosHook.setUltimaActualizacion(data.contenido.ultimaActualizacionDesafio || null);
+        desafiosHook.setIntentosCambio(data.contenido.intentosCambio || 0);
         logrosHook.setLogrosDesbloqueados(data.contenido.logrosDesbloqueados || []);
         logrosHook.setPuntos(data.contenido.puntos || 0);
       }
@@ -295,11 +297,12 @@ export default function Index() {
             planesHook.setPlanesPorDia(payload.new.contenido.planesPorDia || {});
             razonesHook.setRazones(payload.new.contenido.razones || []);
             razonesHook.setRazonDelDia(payload.new.contenido.razonDelDia || null);
-            moodHook.setHistorialMoods(payload.new.contenido.historialMoods || []);
-            moodHook.setMoodHoy(payload.new.contenido.moodHoy || {});
+            // moodHook state is managed internally by the hook now
             notasHook.setNotas(payload.new.contenido.notas || []);
             desafiosHook.setDesafioActual(payload.new.contenido.desafioActual || null);
             desafiosHook.setProgresoDesafio(payload.new.contenido.progresoDesafio || 0);
+            desafiosHook.setUltimaActualizacion(payload.new.contenido.ultimaActualizacionDesafio || null);
+            desafiosHook.setIntentosCambio(payload.new.contenido.intentosCambio || 0);
             logrosHook.setLogrosDesbloqueados(payload.new.contenido.logrosDesbloqueados || []);
             logrosHook.setPuntos(payload.new.contenido.puntos || 0);
           }
@@ -595,6 +598,7 @@ export default function Index() {
             setPlanActual={planesHook.setPlanActual}
             setIntentosRuleta={planesHook.setIntentosRuleta}
             planTieneFecha={planesHook.planTieneFecha}
+            guardarPlanesPorDia={planesHook.guardarPlanesPorDia} // ✅ Corregido: pasar la función
             usuarioActual={usuarioActual}
           />
         );
@@ -909,6 +913,9 @@ export default function Index() {
             completarDesafio={desafiosHook.completarDesafio}
             generarNuevoDesafio={desafiosHook.generarNuevoDesafio}
             desafiosDisponibles={desafiosHook.desafiosDisponibles}
+            ultimaActualizacion={desafiosHook.ultimaActualizacion}
+            intentosCambio={desafiosHook.intentosCambio}
+            mostrarToast={mostrarToast}
           />
         );
 
