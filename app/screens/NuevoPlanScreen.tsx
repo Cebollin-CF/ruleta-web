@@ -35,6 +35,7 @@ export default function NuevoPlanScreen({
   setPlanActual,
   setIntentosRuleta,
   planTieneFecha, // ✅ Recibido del hook
+  usuarioActual, // ✅ Recibido para guardar creador
 }) {
   const guardarPlan = () => {
     if (!titulo.trim()) return;
@@ -43,12 +44,12 @@ export default function NuevoPlanScreen({
       const nuevos = planes.map((p) =>
         p.id === planEditandoId
           ? {
-              ...p,
-              titulo: titulo.trim(),
-              precio: precio.trim() || null,
-              duracion: duracion.trim() || null,
-              categoria: categoria || null,
-            }
+            ...p,
+            titulo: titulo.trim(),
+            precio: precio.trim() || null,
+            duracion: duracion.trim() || null,
+            categoria: categoria || null,
+          }
           : p
       );
 
@@ -75,7 +76,9 @@ export default function NuevoPlanScreen({
       duracion: duracion.trim() || null,
       categoria: categoria || null,
       completado: false,
+      completado: false,
       seguirEnRuleta: true,
+      createdBy: usuarioActual?.nombre || 'Desconocido', // ✅ Guardar quién lo creó
     };
 
     setPlanes([...planes, nuevoPlan]);
@@ -207,10 +210,10 @@ export default function NuevoPlanScreen({
         >
           {/* 🟢 PENDIENTES */}
           <View style={{ flex: 1 }}>
-            <Text style={{ 
-              color: "#6BD18A", 
-              fontSize: 13, 
-              fontWeight: "700", 
+            <Text style={{
+              color: "#6BD18A",
+              fontSize: 13,
+              fontWeight: "700",
               marginBottom: 8,
               textAlign: "center"
             }}>
@@ -241,6 +244,13 @@ export default function NuevoPlanScreen({
                   >
                     {plan.titulo}
                   </Text>
+
+                  {/* ✅ MOSTRAR CREADOR SI EXISTE */}
+                  {plan.createdBy && (
+                    <Text style={{ color: colors.muted, fontSize: 10, marginBottom: 8 }}>
+                      Creado por: {plan.createdBy}
+                    </Text>
+                  )}
 
                   {/* ✅ BOTONES PEQUEÑOS Y ESTÉTICOS */}
                   <View style={{ gap: 4 }}>
@@ -315,10 +325,10 @@ export default function NuevoPlanScreen({
 
           {/* 📅 CON FECHA */}
           <View style={{ flex: 1 }}>
-            <Text style={{ 
-              color: "#FFD93D", 
-              fontSize: 13, 
-              fontWeight: "700", 
+            <Text style={{
+              color: "#FFD93D",
+              fontSize: 13,
+              fontWeight: "700",
               marginBottom: 8,
               textAlign: "center"
             }}>
@@ -349,6 +359,13 @@ export default function NuevoPlanScreen({
                   >
                     {plan.titulo}
                   </Text>
+
+                  {/* ✅ MOSTRAR CREADOR SI EXISTE */}
+                  {plan.createdBy && (
+                    <Text style={{ color: colors.muted, fontSize: 10, marginBottom: 8 }}>
+                      Creado por: {plan.createdBy}
+                    </Text>
+                  )}
 
                   {/* ✅ BOTONES PARA PLANES CON FECHA */}
                   <View style={{ gap: 4 }}>
@@ -433,10 +450,10 @@ export default function NuevoPlanScreen({
 
           {/* ✅ COMPLETADOS */}
           <View style={{ flex: 1 }}>
-            <Text style={{ 
-              color: colors.muted, 
-              fontSize: 13, 
-              fontWeight: "700", 
+            <Text style={{
+              color: colors.muted,
+              fontSize: 13,
+              fontWeight: "700",
               marginBottom: 8,
               textAlign: "center"
             }}>
@@ -469,6 +486,13 @@ export default function NuevoPlanScreen({
                   >
                     {plan.titulo}
                   </Text>
+
+                  {/* ✅ MOSTRAR CREADOR SI EXISTE */}
+                  {plan.createdBy && (
+                    <Text style={{ color: colors.muted, fontSize: 10, marginBottom: 8 }}>
+                      Creado por: {plan.createdBy}
+                    </Text>
+                  )}
 
                   <View style={{ gap: 4 }}>
                     <TouchableOpacity

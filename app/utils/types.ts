@@ -24,4 +24,5 @@ export type Plan = {
   duracion?: string;
   categoria?: string;
   completado?: boolean;
+  createdBy?: string;
 };

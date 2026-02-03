@@ -75,8 +75,18 @@ export const useRazones = (coupleId, usuarioActual) => {
     return { success, razon: nuevaRazon };
   };
 
-  // Eliminar razón (ahora se puede borrar siempre desde la UI)
+  // Eliminar razón (solo el autor puede eliminar)
   const eliminarRazon = async (razonId) => {
+    const razonAEliminar = razones.find(r => r.id === razonId);
+    
+    // Verificar que el usuario actual es el autor (solo si la razón tiene autorId)
+    if (usuarioActual && razonAEliminar?.autorId && razonAEliminar.autorId !== usuarioActual.id) {
+      return { 
+        success: false, 
+        error: 'Solo el autor puede eliminar esta razón' 
+      };
+    }
+
     const nuevasRazones = razones.filter(r => r.id !== razonId);
     
     setRazones(nuevasRazones);

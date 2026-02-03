@@ -44,13 +44,13 @@ import { useLogros } from '../hooks/useLogros';
 async function uploadPhotoToSupabase(uri: string, coupleId: string, esAvatar = false) {
   try {
     console.log("📸 Iniciando subida de foto...");
-    
+
     const response = await fetch(uri);
     if (!response.ok) throw new Error("Error al obtener la imagen");
-    
+
     const blob = await response.blob();
-    
-    const fileName = esAvatar 
+
+    const fileName = esAvatar
       ? `${coupleId}/avatar_${Date.now()}.jpg`
       : `${coupleId}/photo_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.jpg`;
 
@@ -73,7 +73,7 @@ async function uploadPhotoToSupabase(uri: string, coupleId: string, esAvatar = f
 
     console.log("✅ Foto subida correctamente:", publicData?.publicUrl);
     return publicData?.publicUrl;
-    
+
   } catch (error) {
     console.error("❌ Error en uploadPhotoToSupabase:", error);
     return null;
@@ -121,7 +121,7 @@ export default function Index() {
 
   // Hook de mascota (PASA usuarioActual)
   const mascotaHook = useMascota(
-    coupleId, 
+    coupleId,
     logrosHook.puntos || 0,
     contenidoCompleto?.mascota,
     logrosHook,
@@ -158,7 +158,7 @@ export default function Index() {
 
         if (data && data.length > 0) {
           setUsuarios(data);
-          
+
           // Intentar recuperar usuario seleccionado anteriormente
           const usuarioGuardado = await AsyncStorage.getItem('usuario_actual');
           if (usuarioGuardado) {
@@ -168,7 +168,7 @@ export default function Index() {
               return;
             }
           }
-          
+
           // Si no hay usuario guardado, seleccionar el primero
           setUsuarioActual(data[0]);
         } else {
@@ -223,7 +223,7 @@ export default function Index() {
 
       if (data?.contenido) {
         setContenidoCompleto(data.contenido);
-        
+
         planesHook.setPlanes(data.contenido.planes || []);
         planesHook.setPlanesPorDia(data.contenido.planesPorDia || {});
         razonesHook.setRazones(data.contenido.razones || []);
@@ -233,7 +233,7 @@ export default function Index() {
         notasHook.setNotas(data.contenido.notas || []);
         desafiosHook.setDesafioActual(data.contenido.desafioActual || null);
         desafiosHook.setProgresoDesafio(data.contenido.progresoDesafio || 0);
-        logrosHook.setLogrosDesbloqueados(data.contenido.logrosDesbloqueados || []); 
+        logrosHook.setLogrosDesbloqueados(data.contenido.logrosDesbloqueados || []);
         logrosHook.setPuntos(data.contenido.puntos || 0);
       }
     };
@@ -260,10 +260,10 @@ export default function Index() {
       if (error) throw error;
 
       // Actualizar estado local
-      setUsuarios(prev => prev.map(u => 
+      setUsuarios(prev => prev.map(u =>
         u.id === usuarioId ? { ...u, ...datos } : u
       ));
-      
+
       if (usuarioActual?.id === usuarioId) {
         setUsuarioActual(prev => prev ? { ...prev, ...datos } : null);
       }
@@ -323,21 +323,21 @@ export default function Index() {
     mostrarToast("📸 Subiendo foto...", "info");
 
     try {
-      const url = await uploadPhotoToSupabase(uri, `${coupleId}_${usuarioId}`, true);
-      
+      const url = await uploadPhotoToSupabase(uri, coupleId, true);
+
       if (!url) {
         mostrarToast("❌ Error al subir foto", "error");
         return;
       }
 
       const resultado = await actualizarUsuario(usuarioId, { avatar_url: url });
-      
+
       if (resultado.success) {
         mostrarToast("✅ Foto de perfil actualizada ✨");
       } else {
         mostrarToast("❌ Error al guardar foto", "error");
       }
-      
+
     } catch (err) {
       console.error("Error en subirAvatarUsuario:", err);
       mostrarToast("❌ Error al guardar foto", "error");
@@ -387,7 +387,7 @@ export default function Index() {
 
   // Función para actualizar logros automáticamente
   const actualizarLogrosAutomaticamente = async (mostrarNotificaciones = true) => {
-    const diasJuntos = fechaAniversario 
+    const diasJuntos = fechaAniversario
       ? Math.floor((new Date().getTime() - new Date(fechaAniversario).getTime()) / (1000 * 60 * 60 * 24))
       : 0;
 
@@ -401,13 +401,13 @@ export default function Index() {
     };
 
     const resultado = await logrosHook.actualizarLogros(datosUsuario, mostrarNotificaciones);
-    
+
     if (resultado?.notificaciones?.length > 0 && mostrarNotificaciones) {
       resultado.notificaciones.forEach(notif => {
         mostrarToast(`🏆 ${notif.titulo}! (+${notif.puntos} pts)`);
       });
     }
-    
+
     return resultado;
   };
 
@@ -415,7 +415,7 @@ export default function Index() {
   useEffect(() => {
     if (coupleId && !loading && contenidoCompleto) {
       const cargarLogrosIniciales = async () => {
-        const diasJuntos = fechaAniversario 
+        const diasJuntos = fechaAniversario
           ? Math.floor((new Date().getTime() - new Date(fechaAniversario).getTime()) / (1000 * 60 * 60 * 24))
           : 0;
 
@@ -430,7 +430,7 @@ export default function Index() {
 
         await logrosHook.actualizarLogros(datosUsuarioInicial, false);
       };
-      
+
       cargarLogrosIniciales();
     }
   }, [coupleId, loading, contenidoCompleto]);
@@ -441,7 +441,7 @@ export default function Index() {
       const timeoutId = setTimeout(() => {
         actualizarLogrosAutomaticamente(true);
       }, 1000);
-      
+
       return () => clearTimeout(timeoutId);
     }
   }, [stats.totalPlanes, stats.totalFotos, razonesHook.razones.length]);
@@ -480,31 +480,19 @@ export default function Index() {
           />
         );
 
-      case 'inicio': {
-        // Mostrar en la pantalla inicial una razón escrita por la otra persona
-        let razonParaInicio = razonesHook.razonDelDia;
-        if (usuarioActual && razonesHook.razones.length > 0) {
-          const razonesDeLaOtraPersona = razonesHook.razones.filter(
-            (r: any) => r.autorId && r.autorId !== usuarioActual.id
-          );
-          if (razonesDeLaOtraPersona.length > 0) {
-            razonParaInicio = razonesDeLaOtraPersona[0];
-          }
-        }
-
+      case 'inicio':
         return (
           <InicioScreen
             setView={setView}
             coupleId={coupleId}
             fechaAniversario={fechaAniversario}
-            razonDelDia={razonParaInicio}
+            razonDelDia={razonesHook.razonDelDia}
             avatarUrl={contenidoCompleto?.avatarUrl}
             puntos={logrosHook.puntos}
             usuarioActual={usuarioActual}
             onCambiarUsuario={() => setMostrarSeleccionUsuario(true)}
           />
         );
-      }
 
       case 'mascota':
         return (
@@ -608,6 +596,7 @@ export default function Index() {
             setPlanActual={planesHook.setPlanActual}
             setIntentosRuleta={planesHook.setIntentosRuleta}
             planTieneFecha={planesHook.planTieneFecha}
+            usuarioActual={usuarioActual}
           />
         );
 
@@ -618,8 +607,8 @@ export default function Index() {
             markedDates={(() => {
               const marked: any = {};
               Object.keys(planesHook.planesPorDia).forEach((dia) => {
-                marked[dia] = { 
-                  marked: true, 
+                marked[dia] = {
+                  marked: true,
                   dotColor: colors.primary,
                 };
               });
@@ -676,11 +665,11 @@ export default function Index() {
               if (typeof setFechaAniversario === 'function') {
                 setFechaAniversario(nuevaFecha);
               }
-              
+
               AsyncStorage.setItem('fecha_aniversario', nuevaFecha)
                 .then(() => console.log('Fecha guardada en AsyncStorage:', nuevaFecha))
                 .catch(err => console.error('Error guardando fecha:', err));
-              
+
               if (coupleId && contenidoCompleto) {
                 supabase
                   .from('app_state')
@@ -699,16 +688,16 @@ export default function Index() {
                     mostrarToast("⚠️ Error en la nube, pero guardado localmente");
                   });
               }
-              
+
               try {
                 const inicio = new Date(nuevaFecha);
                 const hoy = new Date();
                 inicio.setHours(0, 0, 0, 0);
                 hoy.setHours(0, 0, 0, 0);
-                
+
                 const diferenciaMs = hoy.getTime() - inicio.getTime();
                 const diasJuntos = Math.floor(diferenciaMs / (1000 * 60 * 60 * 24));
-                
+
                 mostrarToast(`📅 Fecha actualizada: ${diasJuntos} días juntos`);
               } catch (e) {
                 console.error('Error calculando días:', e);
@@ -729,9 +718,9 @@ export default function Index() {
                 const lista = planesHook.planesPorDia[fechaSeleccionada] || [];
                 const nuevaLista = [...lista];
                 nuevaLista[index] = { ...nuevaLista[index], ...cambios };
-                
+
                 const success = await planesHook.guardarPlanesPorDia(fechaSeleccionada, nuevaLista);
-                
+
                 if (success) {
                   mostrarToast("✅ Cambios guardados");
                 } else {
@@ -748,26 +737,27 @@ export default function Index() {
                   mediaTypes: ImagePicker.MediaTypeOptions.Images,
                   quality: 0.7,
                 });
-                
+
                 if (!result.canceled && result.assets?.[0]?.uri) {
                   mostrarToast("📸 Subiendo foto...", "info");
-                  
+                  if (!coupleId) return;
+
                   const url = await uploadPhotoToSupabase(result.assets[0].uri, coupleId, false);
                   if (!url) {
                     mostrarToast("❌ Error al subir foto", "error");
                     return;
                   }
-                  
+
                   const lista = planesHook.planesPorDia[fechaSeleccionada] || [];
                   const nuevasFotos = [...(lista[index].fotos || []), url];
                   const nuevaLista = [...lista];
-                  nuevaLista[index] = { 
-                    ...nuevaLista[index], 
-                    fotos: nuevasFotos 
+                  nuevaLista[index] = {
+                    ...nuevaLista[index],
+                    fotos: nuevasFotos
                   };
-                  
+
                   const success = await planesHook.guardarPlanesPorDia(fechaSeleccionada, nuevaLista);
-                  
+
                   if (success) {
                     mostrarToast("📸 Foto guardada!");
                   } else {
@@ -788,9 +778,9 @@ export default function Index() {
               try {
                 const lista = planesHook.planesPorDia[fechaSeleccionada] || [];
                 const nuevaLista = lista.filter((_, idx) => idx !== indexEnDia);
-                
+
                 const success = await planesHook.guardarPlanesPorDia(fechaSeleccionada, nuevaLista);
-                
+
                 if (success) {
                   mostrarToast("🗑️ Plan eliminado");
                 } else {
@@ -845,9 +835,9 @@ export default function Index() {
 
       case 'estadisticas':
         return (
-          <EstadisticasScreen 
-            setView={setView} 
-            stats={stats} 
+          <EstadisticasScreen
+            setView={setView}
+            stats={stats}
           />
         );
 
@@ -883,7 +873,31 @@ export default function Index() {
           <AvatarScreen
             setView={setView}
             avatarUrl={contenidoCompleto?.avatarUrl}
-            subirAvatar={(uri) => subirAvatar(uri)}
+            subirAvatar={async (uri) => {
+              if (!coupleId) return;
+              try {
+                mostrarToast("📸 Subiendo foto de pareja...", "info");
+                const url = await uploadPhotoToSupabase(uri, coupleId, true);
+
+                if (url) {
+                  const { error } = await supabase
+                    .from('app_state')
+                    .update({
+                      contenido: {
+                        ...contenidoCompleto,
+                        avatarUrl: url
+                      }
+                    })
+                    .eq('id', coupleId);
+
+                  if (error) throw error;
+                  mostrarToast("✅ Foto actualizada");
+                }
+              } catch (e) {
+                console.error("Error subiendo avatar pareja:", e);
+                mostrarToast("❌ Error al subir foto", "error");
+              }
+            }}
           />
         );
 
@@ -912,7 +926,7 @@ export default function Index() {
             razonesCount={razonesHook.razones.length}
             desafiosCount={0}
             moodCount={moodHook.historialMoods?.length || 0}
-            diasJuntos={fechaAniversario 
+            diasJuntos={fechaAniversario
               ? Math.floor((new Date().getTime() - new Date(fechaAniversario).getTime()) / (1000 * 60 * 60 * 24))
               : 0
             }
