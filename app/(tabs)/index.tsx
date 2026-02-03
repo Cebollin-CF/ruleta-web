@@ -480,19 +480,31 @@ export default function Index() {
           />
         );
 
-      case 'inicio':
+      case 'inicio': {
+        // Mostrar en la pantalla inicial una razón escrita por la otra persona
+        let razonParaInicio = razonesHook.razonDelDia;
+        if (usuarioActual && razonesHook.razones.length > 0) {
+          const razonesDeLaOtraPersona = razonesHook.razones.filter(
+            (r: any) => r.autorId && r.autorId !== usuarioActual.id
+          );
+          if (razonesDeLaOtraPersona.length > 0) {
+            razonParaInicio = razonesDeLaOtraPersona[0];
+          }
+        }
+
         return (
           <InicioScreen
             setView={setView}
             coupleId={coupleId}
             fechaAniversario={fechaAniversario}
-            razonDelDia={razonesHook.razonDelDia}
+            razonDelDia={razonParaInicio}
             avatarUrl={contenidoCompleto?.avatarUrl}
             puntos={logrosHook.puntos}
             usuarioActual={usuarioActual}
             onCambiarUsuario={() => setMostrarSeleccionUsuario(true)}
           />
         );
+      }
 
       case 'mascota':
         return (
