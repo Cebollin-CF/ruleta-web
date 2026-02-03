@@ -75,18 +75,8 @@ export const useRazones = (coupleId, usuarioActual) => {
     return { success, razon: nuevaRazon };
   };
 
-  // Eliminar razón (solo el autor puede eliminar)
+  // Eliminar razón (ahora se puede borrar siempre desde la UI)
   const eliminarRazon = async (razonId) => {
-    const razonAEliminar = razones.find(r => r.id === razonId);
-    
-    // Verificar que el usuario actual es el autor
-    if (usuarioActual && razonAEliminar?.autorId !== usuarioActual.id) {
-      return { 
-        success: false, 
-        error: 'Solo el autor puede eliminar esta razón' 
-      };
-    }
-
     const nuevasRazones = razones.filter(r => r.id !== razonId);
     
     setRazones(nuevasRazones);
@@ -112,8 +102,8 @@ export const useRazones = (coupleId, usuarioActual) => {
   const editarRazon = async (razonId, nuevoTexto) => {
     const razonAEditar = razones.find(r => r.id === razonId);
     
-    // Verificar que el usuario actual es el autor
-    if (usuarioActual && razonAEditar?.autorId !== usuarioActual.id) {
+    // Verificar que el usuario actual es el autor (solo si la razón tiene autorId)
+    if (usuarioActual && razonAEditar?.autorId && razonAEditar.autorId !== usuarioActual.id) {
       return { 
         success: false, 
         error: 'Solo el autor puede editar esta razón' 

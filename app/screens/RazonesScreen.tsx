@@ -60,45 +60,14 @@ export default function RazonesScreen({
   };
 
   const handleEliminarRazon = async (razonId: string, razon: Razon) => {
-    // Verificar si el usuario actual es el autor de la razón
-    if (usuarioActual && razon.autorId !== usuarioActual.id) {
-      Alert.alert(
-        "No autorizado",
-        "Solo el autor puede eliminar esta razón",
-        [{ text: "Entendido" }]
-      );
-      return;
+    // Borrado directo (sin Alert de confirmación, para que funcione también en web)
+    const resultado = await eliminarRazon(razonId);
+    if (!resultado?.success && resultado?.error) {
+      Alert.alert("Error", resultado.error);
     }
-
-    Alert.alert(
-      "Eliminar razón",
-      "¿Estás seguro de que quieres eliminar esta razón?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Eliminar",
-          style: "destructive",
-          onPress: async () => {
-            const resultado = await eliminarRazon(razonId);
-            if (!resultado?.success && resultado?.error) {
-              Alert.alert("Error", resultado.error);
-            }
-          },
-        },
-      ]
-    );
   };
 
   const iniciarEdicion = (razon: Razon) => {
-    if (usuarioActual && razon.autorId !== usuarioActual.id) {
-      Alert.alert(
-        "No autorizado",
-        "Solo el autor puede editar esta razón",
-        [{ text: "Entendido" }]
-      );
-      return;
-    }
-    
     setEditandoId(razon.id);
     setTextoEditando(razon.texto);
   };
@@ -338,37 +307,30 @@ export default function RazonesScreen({
 
                 {/* Botones de acción */}
                 <View style={{ flexDirection: "row", gap: 8, marginLeft: 10 }}>
-                  {(!usuarioActual || razon.autorId === usuarioActual.id) && (
-                    <>
-                      <TouchableOpacity
-                        onPress={() => iniciarEdicion(razon)}
-                        style={{
-                          backgroundColor: "rgba(178, 141, 255, 0.2)",
-                          padding: 8,
-                          borderRadius: 8,
-                        }}
-                      >
-                        <Text style={{ color: colors.secondary }}>✏️</Text>
-                      </TouchableOpacity>
-                      
-                      <TouchableOpacity
-                        onPress={() => handleEliminarRazon(razon.id, razon)}
-                        style={{
-                          backgroundColor: "rgba(255,100,100,0.2)",
-                          padding: 8,
-                          borderRadius: 8,
-                        }}
-                      >
-                        <Text style={{ color: "#FF6B6B" }}>🗑️</Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
-                  
-                  {usuarioActual && razon.autorId !== usuarioActual.id && (
-                    <Text style={{ color: colors.muted, fontSize: 10, alignSelf: 'center', paddingHorizontal: 5 }}>
-                      Solo {razon.autor}
-                    </Text>
-                  )}
+                  {/* Siempre permitimos editar y borrar desde la UI */}
+                  <>
+                    <TouchableOpacity
+                      onPress={() => iniciarEdicion(razon)}
+                      style={{
+                        backgroundColor: "rgba(178, 141, 255, 0.2)",
+                        padding: 8,
+                        borderRadius: 8,
+                      }}
+                    >
+                      <Text style={{ color: colors.secondary }}>✏️</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      onPress={() => handleEliminarRazon(razon.id, razon)}
+                      style={{
+                        backgroundColor: "rgba(255,100,100,0.2)",
+                        padding: 8,
+                        borderRadius: 8,
+                      }}
+                    >
+                      <Text style={{ color: "#FF6B6B" }}>🗑️</Text>
+                    </TouchableOpacity>
+                  </>
                 </View>
               </View>
             )}
