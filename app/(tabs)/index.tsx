@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, Text, TouchableOpacity, Alert } from 'react-native';
+import { View, ActivityIndicator, Text, TouchableOpacity, Alert, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Camera } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -605,8 +605,10 @@ function Index() {
             girar={() => {
               const resultado = planesHook.girarRuleta();
               if (!resultado) {
-                Alert.alert("Sin planes", "No hay planes disponibles. Crea algunos primero.");
+                Alert.alert("Aviso", "No quedan planes disponibles para girar (o todos tienen ya una fecha asignada). Crea más planes primero.");
+                return false;
               }
+              return true;
             }}
             intentosRuleta={planesHook.intentosRuleta}
           />
@@ -1052,10 +1054,15 @@ function Index() {
               paddingRight: 10
             }}
           >
-            <Text style={{ fontSize: 24 }}>
-              {usuarioActual?.avatar_url || '👤'}
-            </Text>
-            <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 5 }}>
+            {usuarioActual?.avatar_url ? (
+              <Image
+                source={{ uri: usuarioActual.avatar_url }}
+                style={{ width: 28, height: 28, borderRadius: 14 }}
+              />
+            ) : (
+              <Text style={{ fontSize: 24 }}>👤</Text>
+            )}
+            <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 8 }}>
               {usuarioActual?.nombre || 'Perfil'}
             </Text>
           </TouchableOpacity>

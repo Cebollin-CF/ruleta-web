@@ -28,7 +28,7 @@ interface RuletaScreenProps {
   setView: (view: string) => void;
   planes: Plan[];
   planActual: Plan | null;
-  girar: () => void;
+  girar: () => boolean;
   intentosRuleta: number;
 }
 
@@ -119,9 +119,12 @@ export default function RuletaScreen({
       if (index !== -1) {
         setWinnerIndex(index);
         startAnimation(index);
+      } else {
+        // Si no se encuentra el plan por alguna razón, resetear
+        setSpinning(false);
       }
     }
-  }, [planActual]);
+  }, [planActual, spinning]);
 
   // ✅ MOTOR DE FÍSICA V3
   const startAnimation = (targetIndex: number) => {
@@ -157,7 +160,10 @@ export default function RuletaScreen({
     setShowResult(false);
     setConfetti([]);
     lastTickIndex.value = -1;
-    girar();
+    const success = girar();
+    if (success === false) {
+      setSpinning(false);
+    }
   };
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -317,7 +323,7 @@ export default function RuletaScreen({
                 color={!hasPlanes ? colors.secondary : (spinning ? colors.muted : colors.primary)}
                 onPress={handleSpin}
                 disabled={spinning}
-                style={{ width: width * 0.55, height: 55 }}
+                style={{ width: width * 0.55, height: 60 }}
               />
               {hasPlanes && (
                 <Text style={[styles.mutedText, { color: colors.muted }]}>
@@ -367,7 +373,7 @@ export default function RuletaScreen({
                     text={`OTRO (${3 - intentosRuleta})`}
                     color={colors.secondary}
                     onPress={handleSpin}
-                    style={{ flex: 1, height: 50, marginBottom: 0 }}
+                    style={{ flex: 1, height: 55, marginBottom: 0 }}
                   />
                 )}
               </View>
