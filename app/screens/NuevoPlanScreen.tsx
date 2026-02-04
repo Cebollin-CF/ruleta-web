@@ -11,6 +11,39 @@ import { supabase } from "../../supabaseClient";
 import Boton from "../components/Boton";
 import Container from "../components/Container";
 import colors from "../utils/colors";
+import { Plan, Usuario, DatedPlan, Nota } from "../utils/types";
+
+interface NuevoPlanScreenProps {
+  setView: (view: string) => void;
+  planes: Plan[];
+  setPlanes: (planes: Plan[]) => void;
+  titulo: string;
+  setTitulo: (titulo: string) => void;
+  precio: string;
+  setPrecio: (precio: string) => void;
+  duracion: string;
+  setDuracion: (duracion: string) => void;
+  categoria: string;
+  setCategoria: (categoria: string) => void;
+  editando: boolean;
+  setEditando: (editando: boolean) => void;
+  planEditandoId: string | null;
+  setPlanEditandoId: (id: string | null) => void;
+  guardarNuevoPlan: (plan: Plan) => Promise<boolean>;
+  coupleId: string | null;
+  planesPorDia: Record<string, DatedPlan[]>;
+  notas: Nota[];
+  setPlanActual: (plan: Plan | null) => void;
+  setIntentosRuleta: (intentos: number) => void;
+  planTieneFecha: (planId: string) => boolean;
+  usuarioActual: Usuario | null;
+  guardarPlanesPorDia: (fecha: string, lista: DatedPlan[]) => Promise<boolean>;
+  marcarComoCompletado: (planId: string) => Promise<boolean>;
+  mostrarToast: (mensaje: string, tipo?: 'success' | 'error' | 'warning' | 'info', emoji?: string) => void;
+  eliminarPlan: (planId: string) => Promise<boolean>;
+  editarPlan: (planId: string, datos: any) => Promise<boolean>;
+  guardarEnSupabase: (planes?: any, planesPorDia?: any) => Promise<boolean>;
+}
 
 export default function NuevoPlanScreen({
   setView,
@@ -36,116 +69,140 @@ export default function NuevoPlanScreen({
   setIntentosRuleta,
   planTieneFecha,
   usuarioActual,
-  guardarPlanesPorDia, // ✅ RECIBIDA
-}) {
-  const guardarPlan = () => {
-    if (!titulo.trim()) return;
+  guardarPlanesPorDia,
+  marcarComoCompletado: marcarComoCompletadoProp,
+  mostrarToast,
+  eliminarPlan: eliminarPlanProp,
+  editarPlan,
+  guardarEnSupabase,
+}: NuevoPlanScreenProps) {
+  const [loadingAction, setLoadingAction] = React.useState(false);
 
-    if (editando) {
-      const nuevos = planes.map((p) =>
-        p.id === planEditandoId
-          ? {
-            ...p,
-            titulo: titulo.trim(),
-            precio: precio.trim() || null,
-            duracion: duracion.trim() || null,
-            categoria: categoria || null,
-          }
-          : p
-      );
-
-      setPlanes(nuevos);
-
-      supabase
-        .from("app_state")
-        .update({ contenido: { planes: nuevos, planesPorDia, notas } })
-        .eq("id", coupleId);
-
-      setEditando(false);
-      setPlanEditandoId(null);
-      setTitulo("");
-      setPrecio("");
-      setDuracion("");
-      setCategoria("");
+  const guardarPlan = async () => {
+    if (!titulo.trim()) {
+      mostrarToast("El título no puede estar vacío", "error", "❌");
       return;
     }
+    setLoadingAction(true);
 
-    const nuevoPlan = {
-      id: Date.now().toString(),
-      titulo: titulo.trim(),
-      precio: precio.trim() || null,
-      duracion: duracion.trim() || null,
-      categoria: categoria || null,
-      completado: false,
-      completado: false,
-      seguirEnRuleta: true,
-      createdBy: usuarioActual?.nombre || 'Desconocido', // ✅ Guardar quién lo creó
-    };
+    try {
+      if (editando) {
+        if (!planEditandoId) {
+          mostrarToast("Error: ID del plan a editar no encontrado.", "error", "❌");
+          setLoadingAction(false);
+          return;
+        }
+        const success = await editarPlan(planEditandoId, {
+          titulo: titulo.trim(),
+          precio: precio.trim() || null,
+          duracion: duracion.trim() || null,
+          categoria: categoria || null,
+        });
 
-    setPlanes([...planes, nuevoPlan]);
-    guardarNuevoPlan(nuevoPlan, coupleId);
-
-    setTitulo("");
-    setPrecio("");
-    setDuracion("");
-    setCategoria("");
-
-  };
-
-  // ✅ FUNCIÓN CORREGIDA: Actualiza estado local instantáneamente
-  const moverAPendiente = async (planId) => {
-    console.log("moverAPendiente llamado para plan:", planId);
-
-    // Copia profunda simple para evitar problemas de referencia
-    const nuevosPlanesPorDia = JSON.parse(JSON.stringify(planesPorDia || {}));
-    let fechaAfectada = null;
-
-    Object.keys(nuevosPlanesPorDia).forEach((fecha) => {
-      const listaOriginal = nuevosPlanesPorDia[fecha];
-      const nuevaLista = listaOriginal.filter((p) => p.planId !== planId);
-
-      if (nuevaLista.length < listaOriginal.length) {
-        fechaAfectada = fecha;
-        nuevosPlanesPorDia[fecha] = nuevaLista;
+        if (success) {
+          setEditando(false);
+          setPlanEditandoId(null);
+          setTitulo("");
+          setPrecio("");
+          setDuracion("");
+          setCategoria("");
+          mostrarToast("Plan editado con éxito", "success", "✏️");
+        } else {
+          mostrarToast("Error al editar el plan", "error", "❌");
+        }
+        return;
       }
 
-      if (nuevosPlanesPorDia[fecha].length === 0) {
-        delete nuevosPlanesPorDia[fecha];
-      }
-    });
+      const nuevoPlan = {
+        id: Date.now().toString(),
+        titulo: titulo.trim(),
+        precio: precio.trim() || null,
+        duracion: duracion.trim() || null,
+        categoria: categoria || null,
+        completado: false,
+        seguirEnRuleta: true,
+        creadoPor: usuarioActual?.nombre || 'Desconocido',
+      };
 
-    if (fechaAfectada) {
-      if (typeof guardarPlanesPorDia === 'function') {
-        // Usar la función del hook que actualiza localmente Y Supabase
-        await guardarPlanesPorDia(fechaAfectada, nuevosPlanesPorDia[fechaAfectada] || []);
+      const success = await guardarNuevoPlan(nuevoPlan);
+
+      if (success) {
+        setTitulo("");
+        setPrecio("");
+        setDuracion("");
+        setCategoria("");
+        mostrarToast("Plan guardado con éxito", "success", "❤️");
       } else {
-        console.error("guardarPlanesPorDia NO es una función");
-        // Fallback
-        supabase
-          .from("app_state")
-          .update({
-            contenido: { planes, planesPorDia: nuevosPlanesPorDia, notas },
-          })
-          .eq("id", coupleId);
+        mostrarToast("Error al guardar el plan", "error", "❌");
       }
+    } finally {
+      setLoadingAction(false);
     }
   };
 
-  // ✅ FUNCIÓN PARA MARCAR COMO COMPLETADO DESDE "CON FECHA"
-  const marcarComoCompletado = (planId) => {
-    const nuevosPlanes = planes.map((p) =>
-      p.id === planId ? { ...p, completado: true } : p
-    );
-
-    setPlanes(nuevosPlanes);
-
-    supabase
-      .from("app_state")
-      .update({
-        contenido: { planes: nuevosPlanes, planesPorDia, notas },
-      })
-      .eq("id", coupleId);
+  const marcarComoCompletado = async (planId: string) => {
+    setLoadingAction(true);
+    try {
+      const success = await marcarComoCompletadoProp(planId);
+      if (success) {
+        mostrarToast("Plan marcado como completado", "success", "🎉");
+      } else {
+        mostrarToast("Error al marcar plan como completado", "error", "❌");
+      }
+    } finally {
+      setLoadingAction(false);
+    }
   };
+
+  const eliminarPlan = async (planId: string) => {
+    setLoadingAction(true);
+    try {
+      const success = await eliminarPlanProp(planId);
+      if (success) {
+        mostrarToast("Plan eliminado con éxito", "success", "🗑️");
+      } else {
+        mostrarToast("Error al eliminar el plan", "error", "❌");
+      }
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
+  const moverAPendiente = async (planId) => {
+    console.log("moverAPendiente llamado para plan:", planId);
+    setLoadingAction(true);
+
+    try {
+      const nuevosPlanesPorDia = JSON.parse(JSON.stringify(planesPorDia || {}));
+      let fechaAfectada = null;
+
+      Object.keys(nuevosPlanesPorDia).forEach((fecha) => {
+        const listaOriginal = nuevosPlanesPorDia[fecha];
+        const nuevaLista = listaOriginal.filter((p) => p.planId !== planId);
+
+        if (nuevaLista.length < listaOriginal.length) {
+          fechaAfectada = fecha;
+          nuevosPlanesPorDia[fecha] = nuevaLista;
+        }
+
+        if (nuevosPlanesPorDia[fecha].length === 0) {
+          delete nuevosPlanesPorDia[fecha];
+        }
+      });
+
+      if (fechaAfectada && typeof guardarPlanesPorDia === 'function') {
+        const success = await guardarPlanesPorDia(fechaAfectada, nuevosPlanesPorDia[fechaAfectada] || []);
+        if (success) {
+          mostrarToast("Plan movido a pendientes", "info", "↩️");
+        } else {
+          mostrarToast("Error al mover plan a pendientes", "error", "❌");
+        }
+      }
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
 
   // ✅ CLASIFICAR PLANES
   const planesPendientes = planes.filter((p) => !p.completado && !planTieneFecha(p.id));
@@ -216,6 +273,7 @@ export default function NuevoPlanScreen({
           text={editando ? "Guardar cambios ✏️" : "Guardar plan ❤️"}
           color={colors.primary}
           onPress={guardarPlan}
+          disabled={loadingAction}
         />
 
         {/* ====== TRES COLUMNAS ====== */}
@@ -264,9 +322,9 @@ export default function NuevoPlanScreen({
                   </Text>
 
                   {/* ✅ MOSTRAR CREADOR SI EXISTE */}
-                  {plan.createdBy && (
+                  {plan.creadoPor && (
                     <Text style={{ color: colors.muted, fontSize: 10, marginBottom: 8 }}>
-                      Creado por: {plan.createdBy}
+                      Creado por: {plan.creadoPor}
                     </Text>
                   )}
 
@@ -315,14 +373,8 @@ export default function NuevoPlanScreen({
                       </TouchableOpacity>
 
                       <TouchableOpacity
-                        onPress={() => {
-                          const nuevos = planes.filter((p) => p.id !== plan.id);
-                          setPlanes(nuevos);
-                          supabase
-                            .from("app_state")
-                            .update({ contenido: { planes: nuevos, planesPorDia, notas } })
-                            .eq("id", coupleId);
-                        }}
+                        onPress={() => eliminarPlan(plan.id)}
+                        disabled={loadingAction}
                         activeOpacity={0.7}
                         style={{
                           flex: 1,
@@ -379,9 +431,9 @@ export default function NuevoPlanScreen({
                   </Text>
 
                   {/* ✅ MOSTRAR CREADOR SI EXISTE */}
-                  {plan.createdBy && (
+                  {plan.creadoPor && (
                     <Text style={{ color: colors.muted, fontSize: 10, marginBottom: 8 }}>
-                      Creado por: {plan.createdBy}
+                      Creado por: {plan.creadoPor}
                     </Text>
                   )}
 
@@ -440,14 +492,8 @@ export default function NuevoPlanScreen({
                       </TouchableOpacity>
 
                       <TouchableOpacity
-                        onPress={() => {
-                          const nuevos = planes.filter((p) => p.id !== plan.id);
-                          setPlanes(nuevos);
-                          supabase
-                            .from("app_state")
-                            .update({ contenido: { planes: nuevos, planesPorDia, notas } })
-                            .eq("id", coupleId);
-                        }}
+                        onPress={() => eliminarPlan(plan.id)}
+                        disabled={loadingAction}
                         activeOpacity={0.7}
                         style={{
                           flex: 1,
@@ -506,15 +552,15 @@ export default function NuevoPlanScreen({
                   </Text>
 
                   {/* ✅ MOSTRAR CREADOR SI EXISTE */}
-                  {plan.createdBy && (
+                  {plan.creadoPor && (
                     <Text style={{ color: colors.muted, fontSize: 10, marginBottom: 8 }}>
-                      Creado por: {plan.createdBy}
+                      Creado por: {plan.creadoPor}
                     </Text>
                   )}
 
                   <View style={{ gap: 4 }}>
                     <TouchableOpacity
-                      onPress={() => {
+                      onPress={async () => {
                         const nuevoPlan = {
                           ...plan,
                           id: Date.now().toString() + Math.random().toString(36).slice(2),
@@ -522,17 +568,9 @@ export default function NuevoPlanScreen({
                           seguirEnRuleta: true,
                         };
 
-                        const nuevos = [
-                          ...planes.filter((p) => p.id !== plan.id),
-                          nuevoPlan,
-                        ];
-
-                        setPlanes(nuevos);
-
-                        supabase
-                          .from("app_state")
-                          .update({ contenido: { planes: nuevos, planesPorDia, notas } })
-                          .eq("id", coupleId);
+                        if (typeof guardarNuevoPlan === 'function') {
+                          await guardarNuevoPlan(nuevoPlan);
+                        }
                       }}
                       activeOpacity={0.7}
                       style={{
@@ -548,14 +586,8 @@ export default function NuevoPlanScreen({
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      onPress={() => {
-                        const nuevos = planes.filter((p) => p.id !== plan.id);
-                        setPlanes(nuevos);
-                        supabase
-                          .from("app_state")
-                          .update({ contenido: { planes: nuevos, planesPorDia, notas } })
-                          .eq("id", coupleId);
-                      }}
+                      onPress={() => eliminarPlan(plan.id)}
+                      disabled={loadingAction}
                       activeOpacity={0.7}
                       style={{
                         backgroundColor: '#FFFFFF15',

@@ -4,16 +4,36 @@ import { Text, ScrollView, View, TouchableOpacity, StyleSheet } from 'react-nati
 import Container from '../components/Container';
 import colors from '../utils/colors';
 
-export default function LogrosScreen({ 
-  setView, 
+import { Logro, Usuario } from '../utils/types';
+
+interface LogrosScreenProps {
+  setView: (view: string) => void;
+  logrosHook: {
+    puntos: number;
+    logrosDesbloqueados: string[];
+    getTodosLogrosConEstado: (datos: any) => any[];
+  };
+  stats: {
+    totalPlanesCompletados: number;
+    totalFotos: number;
+    diasConPlanes: number;
+  } | null;
+  razonesCount: number;
+  desafiosCount: number;
+  moodCount: number;
+  diasJuntos: number;
+}
+
+export default function LogrosScreen({
+  setView,
   logrosHook,
   stats,
   razonesCount,
   desafiosCount,
   moodCount,
   diasJuntos,
-}) {
-  const [logrosConEstado, setLogrosConEstado] = useState([]);
+}: LogrosScreenProps) {
+  const [logrosConEstado, setLogrosConEstado] = useState<any[]>([]);
 
   // Preparar datos para los logros
   useEffect(() => {
@@ -33,7 +53,7 @@ export default function LogrosScreen({
     setLogrosConEstado(logros);
   }, [logrosHook, stats, razonesCount, desafiosCount, moodCount, diasJuntos]);
 
-  const renderLogro = (logro) => {
+  const renderLogro = (logro: any) => {
     const esRepetible = logro.tipo === 'repetible';
     const tieneNiveles = esRepetible && logro.nivelMaximo > 0;
 
@@ -46,27 +66,27 @@ export default function LogrosScreen({
         ]}
       >
         <Text style={styles.logroIcono}>{logro.icono}</Text>
-        
+
         <View style={styles.logroInfo}>
           <Text style={styles.logroTitulo}>
             {logro.titulo}
             {tieneNiveles && ` (Nivel ${logro.nivelActual}/${logro.nivelMaximo})`}
           </Text>
-          
+
           <Text style={styles.logroDescripcion}>{logro.descripcion}</Text>
-          
+
           {/* Progreso para logros repetibles */}
           {esRepetible && tieneNiveles && (
             <View style={styles.progresoContainer}>
               <View style={styles.barraProgresoFondo}>
-                <View 
+                <View
                   style={[
                     styles.barraProgreso,
                     { width: `${logro.progreso}%` }
-                  ]} 
+                  ]}
                 />
               </View>
-              
+
               <Text style={styles.textoProgreso}>
                 {logro.valorActual || 0}
                 {logro.objetivSiguiente && ` / ${logro.objetivSiguiente}`}
@@ -74,11 +94,11 @@ export default function LogrosScreen({
               </Text>
             </View>
           )}
-          
+
           {/* Puntos */}
           <Text style={styles.logroPuntos}>
-            {esRepetible && tieneNiveles 
-              ? `+${logro.puntos * (logro.nivelActual || 1)} pts` 
+            {esRepetible && tieneNiveles
+              ? `+${logro.puntos * (logro.nivelActual || 1)} pts`
               : `+${logro.puntos} pts`}
           </Text>
         </View>
@@ -107,7 +127,7 @@ export default function LogrosScreen({
     'Razones': logrosConEstado.filter(l => l.titulo.includes('razón') || l.titulo.includes('Razón')),
     'Tiempo': logrosConEstado.filter(l => l.titulo.includes('días') || l.titulo.includes('mes') || l.titulo.includes('año')),
     'Desafíos': logrosConEstado.filter(l => l.titulo.includes('desafío') || l.titulo.includes('Desafío')),
-    'Especiales': logrosConEstado.filter(l => !['plan', 'foto', 'razón', 'días', 'desafío'].some(palabra => 
+    'Especiales': logrosConEstado.filter(l => !['plan', 'foto', 'razón', 'días', 'desafío'].some(palabra =>
       l.titulo.toLowerCase().includes(palabra))
     ),
   };
@@ -131,13 +151,13 @@ export default function LogrosScreen({
       <ScrollView contentContainerStyle={styles.listaContainer}>
         {Object.entries(logrosPorCategoria).map(([categoria, logros]) => {
           if (logros.length === 0) return null;
-          
+
           return (
             <View key={categoria} style={styles.categoriaContainer}>
               <Text style={styles.categoriaTitulo}>
                 {categoria} ({logros.filter(l => l.desbloqueado).length}/{logros.length})
               </Text>
-              
+
               {logros.map(renderLogro)}
             </View>
           );

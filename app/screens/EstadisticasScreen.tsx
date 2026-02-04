@@ -15,6 +15,7 @@ type EstadisticasScreenProps = {
     moodPromedio?: number;
     mascotaNombre?: string;
     usuarioNombre?: string;
+    puntos?: number;
   };
 };
 
@@ -80,7 +81,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   card: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.bgBottom,
     borderRadius: 16,
     padding: 16,
     alignItems: "center",

@@ -4,14 +4,7 @@ import { MotiView } from "moti";
 import Container from "../components/Container";
 import colors from "../utils/colors";
 
-interface Razon {
-  id: string;
-  texto: string;
-  autor: string;
-  autorId?: string;
-  fecha: string;
-  usuarioNumero?: number;
-}
+import { Razon, Usuario } from "../utils/types";
 
 interface RazonesScreenProps {
   setView: (view: string) => void;
@@ -20,7 +13,7 @@ interface RazonesScreenProps {
   eliminarRazon: (razonId: string) => Promise<any>;
   razonDelDia: Razon | null;
   editarRazon: (razonId: string, nuevoTexto: string) => Promise<any>;
-  usuarioActual: any;
+  usuarioActual: Usuario | null;
 }
 
 export default function RazonesScreen({
@@ -50,7 +43,7 @@ export default function RazonesScreen({
       );
       return;
     }
-    
+
     const resultado = await agregarRazon(nuevaRazon.trim());
     if (resultado?.success) {
       setNuevaRazon("");
@@ -100,7 +93,7 @@ export default function RazonesScreen({
       );
       return;
     }
-    
+
     setEditandoId(razon.id);
     setTextoEditando(razon.texto);
   };
@@ -112,7 +105,7 @@ export default function RazonesScreen({
 
   const guardarEdicion = async () => {
     if (!editandoId || !textoEditando.trim()) return;
-    
+
     const resultado = await editarRazon(editandoId, textoEditando.trim());
     if (resultado?.success) {
       setEditandoId(null);
@@ -328,7 +321,7 @@ export default function RazonesScreen({
                     <Text style={{ color: colors.muted, fontSize: 12 }}>
                       Por: {razon.autor || 'Usuario'} • {new Date(razon.fecha).toLocaleDateString()}
                     </Text>
-                    
+
                     {/* Indicador de usuario actual */}
                     {usuarioActual && razon.autorId === usuarioActual.id && (
                       <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '700' }}>
@@ -352,7 +345,7 @@ export default function RazonesScreen({
                       >
                         <Text style={{ color: colors.secondary }}>✏️</Text>
                       </TouchableOpacity>
-                      
+
                       <TouchableOpacity
                         onPress={() => handleEliminarRazon(razon.id, razon)}
                         style={{
@@ -365,7 +358,7 @@ export default function RazonesScreen({
                       </TouchableOpacity>
                     </>
                   )}
-                  
+
                   {usuarioActual && razon.autorId && razon.autorId !== usuarioActual.id && (
                     <Text style={{ color: colors.muted, fontSize: 10, alignSelf: 'center', paddingHorizontal: 5 }}>
                       Solo {razon.autor}
@@ -381,7 +374,7 @@ export default function RazonesScreen({
           <View style={{ alignItems: 'center', marginTop: 30 }}>
             <Text style={{ fontSize: 50, marginBottom: 10 }}>💝</Text>
             <Text style={{ color: colors.muted, textAlign: "center", marginBottom: 5, fontSize: 16 }}>
-              {usuarioActual 
+              {usuarioActual
                 ? `${usuarioActual.nombre}, aún no has escrito razones`
                 : "Aún no hay razones. ¡Agrega la primera!"}
             </Text>

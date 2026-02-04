@@ -8,7 +8,11 @@ import { Picker } from '@react-native-picker/picker';
 // RUTAS CORREGIDAS:
 import colors from '../utils/colors';
 import { supabase } from '../../supabaseClient';
-import type { Usuario } from '../utils/types';
+import { Plan, PlanesPorDia, Usuario, AppStateContent, Razon, Nota, Desafio, Logro, DatedPlan } from '../utils/types';
+
+// ✅ THEME PROVIDER & AJUSTES
+import { ThemeProvider } from '../context/ThemeContext';
+import AjustesScreen from '../screens/AjustesScreen';
 
 // Importaciones de mascota
 import MascotaScreen from '../screens/MascotaScreen';
@@ -80,7 +84,16 @@ async function uploadPhotoToSupabase(uri: string, coupleId: string, esAvatar = f
   }
 }
 
-export default function Index() {
+// ✅ Componente envuelto en Provider
+export default function App() {
+  return (
+    <ThemeProvider>
+      <Index />
+    </ThemeProvider>
+  );
+}
+
+function Index() {
   // Hook para estado principal de la app
   const {
     loading,
@@ -102,7 +115,7 @@ export default function Index() {
   const [mostrarSeleccionUsuario, setMostrarSeleccionUsuario] = useState(false);
 
   // Estados adicionales
-  const [contenidoCompleto, setContenidoCompleto] = useState<any>(null);
+  const [contenidoCompleto, setContenidoCompleto] = useState<AppStateContent | null>(null);
   const [scannerActive, setScannerActive] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [codigoManual, setCodigoManual] = useState('');
@@ -123,9 +136,8 @@ export default function Index() {
   const mascotaHook = useMascota(
     coupleId,
     logrosHook.puntos || 0,
-    contenidoCompleto?.mascota,
-    contenidoCompleto?.ultimaActualizacionDesafio || null,
-    contenidoCompleto?.intentosCambio || 0
+    logrosHook,
+    usuarioActual
   );
 
   // Estados para formularios
@@ -134,9 +146,10 @@ export default function Index() {
   const [duracion, setDuracion] = useState("");
   const [categoria, setCategoria] = useState("");
   const [editando, setEditando] = useState(false);
-  const [planEditandoId, setPlanEditandoId] = useState(null);
+  const [planEditandoId, setPlanEditandoId] = useState<string | null>(null);
   const [notaTexto, setNotaTexto] = useState("");
   const [fechaSeleccionada, setFechaSeleccionada] = useState<string | null>(null);
+  const [appLoaded, setAppLoaded] = useState(false); // ✅ Nueva bandera global de carga
 
   // ✅ NUEVO: Cargar usuarios cuando haya coupleId
   useEffect(() => {
@@ -212,30 +225,48 @@ export default function Index() {
 
   // Cargar contenido desde Supabase
   useEffect(() => {
-    if (!coupleId) return;
+    if (!coupleId) {
+      setAppLoaded(false);
+      return;
+    }
 
     const cargarContenido = async () => {
-      const { data } = await supabase
-        .from('app_state')
-        .select('contenido')
-        .eq('id', coupleId)
-        .single();
+      setAppLoaded(false); // ✅ Resetear al empezar a cargar nuevo ID
+      try {
+        const { data, error } = await supabase
+          .from('app_state')
+          .select('contenido')
+          .eq('id', coupleId)
+          .maybeSingle();
 
-      if (data?.contenido) {
-        setContenidoCompleto(data.contenido);
+        if (error) throw error;
 
-        planesHook.setPlanes(data.contenido.planes || []);
-        planesHook.setPlanesPorDia(data.contenido.planesPorDia || {});
-        razonesHook.setRazones(data.contenido.razones || []);
-        razonesHook.setRazonDelDia(data.contenido.razonDelDia || null);
-        // moodHook state is managed internally by the hook now
-        notasHook.setNotas(data.contenido.notas || []);
-        desafiosHook.setDesafioActual(data.contenido.desafioActual || null);
-        desafiosHook.setProgresoDesafio(data.contenido.progresoDesafio || 0);
-        desafiosHook.setUltimaActualizacion(data.contenido.ultimaActualizacionDesafio || null);
-        desafiosHook.setIntentosCambio(data.contenido.intentosCambio || 0);
-        logrosHook.setLogrosDesbloqueados(data.contenido.logrosDesbloqueados || []);
-        logrosHook.setPuntos(data.contenido.puntos || 0);
+        if (data?.contenido) {
+          setContenidoCompleto(data.contenido);
+
+          planesHook.setPlanes(data.contenido.planes || []);
+          planesHook.setPlanesPorDia(data.contenido.planesPorDia || {});
+          razonesHook.setRazones(data.contenido.razones || []);
+          razonesHook.setRazonDelDia(data.contenido.razonDelDia || null);
+          notasHook.setNotas(data.contenido.notas || []);
+          desafiosHook.setDesafioActual(data.contenido.desafioActual || null);
+          desafiosHook.setProgresoDesafio(data.contenido.progresoDesafio || 0);
+          desafiosHook.setUltimaActualizacion(data.contenido.ultimaActualizacionDesafio || null);
+          desafiosHook.setIntentosCambio(data.contenido.intentosCambio || 0);
+          logrosHook.setLogrosDesbloqueados(data.contenido.logrosDesbloqueados || []);
+          logrosHook.setPuntos(data.contenido.puntos || 0);
+        }
+      } catch (err) {
+        console.error("❌ Error cargando contenido:", err);
+        mostrarToast("⚠️ Error al sincronizar, usando datos locales");
+      } finally {
+        // ✅ MARCAR TODOS LOS HOOKS COMO CARGADOS (Incluso si falló, para permitir uso local)
+        planesHook.setLoaded(true);
+        razonesHook.setLoaded(true);
+        notasHook.setLoaded(true);
+        desafiosHook.setLoaded(true);
+        logrosHook.setLoaded(true);
+        setAppLoaded(true);
       }
     };
 
@@ -482,17 +513,30 @@ export default function Index() {
           />
         );
 
+
+      case 'ajustes':
+        return (
+          <AjustesScreen
+            setView={setView}
+            coupleId={coupleId}
+            setCoupleId={setCoupleId}
+            setUsuarios={setUsuarios}
+            setUsuarioActual={setUsuarioActual}
+          />
+        );
+
       case 'inicio':
         return (
           <InicioScreen
             setView={setView}
             coupleId={coupleId}
+            avatarUrl={contenidoCompleto?.avatarUrl || null}
             fechaAniversario={fechaAniversario}
             razonDelDia={razonesHook.razonDelDia}
-            avatarUrl={contenidoCompleto?.avatarUrl}
-            puntos={logrosHook.puntos}
+            puntos={contenidoCompleto?.puntos || 0}
             usuarioActual={usuarioActual}
             onCambiarUsuario={() => setMostrarSeleccionUsuario(true)}
+            mostrarToast={mostrarToast}
           />
         );
 
@@ -512,10 +556,13 @@ export default function Index() {
           <RazonesScreen
             setView={setView}
             razones={razonesHook.razones}
-            agregarRazon={async (texto) => {
-              const result = await razonesHook.agregarRazon(texto);
-              if (result?.success) {
-                mostrarToast("💝 Razón agregada");
+            agregarRazon={async (textoRazon) => {
+              const result: any = await razonesHook.agregarRazon(textoRazon);
+              if (result && typeof result === 'object' && result.success) {
+                // Assuming setTextoRazon and setMostrarAddRazon are defined elsewhere if needed
+                // setTextoRazon("");
+                // setMostrarAddRazon(false);
+                mostrarToast("Razón guardada! ❤️");
               } else {
                 mostrarToast("❌ Error al agregar razón", "error");
               }
@@ -598,7 +645,12 @@ export default function Index() {
             setPlanActual={planesHook.setPlanActual}
             setIntentosRuleta={planesHook.setIntentosRuleta}
             planTieneFecha={planesHook.planTieneFecha}
-            guardarPlanesPorDia={planesHook.guardarPlanesPorDia} // ✅ Corregido: pasar la función
+            guardarPlanesPorDia={planesHook.guardarPlanesPorDia}
+            guardarEnSupabase={planesHook.guardarEnSupabase}
+            marcarComoCompletado={planesHook.marcarComoCompletado}
+            mostrarToast={mostrarToast}
+            eliminarPlan={planesHook.eliminarPlan}
+            editarPlan={planesHook.editarPlan}
             usuarioActual={usuarioActual}
           />
         );
@@ -673,23 +725,41 @@ export default function Index() {
                 .then(() => console.log('Fecha guardada en AsyncStorage:', nuevaFecha))
                 .catch(err => console.error('Error guardando fecha:', err));
 
-              if (coupleId && contenidoCompleto) {
-                supabase
-                  .from('app_state')
-                  .update({
-                    contenido: {
-                      ...contenidoCompleto,
-                      fechaAniversario: nuevaFecha,
-                    },
-                  })
-                  .eq('id', coupleId)
-                  .then(() => {
+              if (coupleId) {
+                const actualizarFechaSeguro = async () => {
+                  try {
+                    // 1. Obtener contenido actual de la nube para fusionar
+                    const { data: registro, error: fetchError } = await supabase
+                      .from('app_state')
+                      .select('contenido')
+                      .eq('id', coupleId)
+                      .maybeSingle();
+
+                    if (fetchError) throw fetchError;
+
+                    const contenidoPrevio = registro?.contenido || {};
+
+                    // 2. Fusionar y actualizar
+                    const { error: updateError } = await supabase
+                      .from('app_state')
+                      .update({
+                        contenido: {
+                          ...contenidoPrevio,
+                          fechaAniversario: nuevaFecha,
+                        },
+                      })
+                      .eq('id', coupleId);
+
+                    if (updateError) throw updateError;
+
                     mostrarToast("✅ Fecha actualizada en la nube");
-                  })
-                  .catch(error => {
-                    console.error("Error actualizando fecha en Supabase:", error);
+                  } catch (error) {
+                    console.error("❌ Error actualizando fecha en Supabase:", error);
                     mostrarToast("⚠️ Error en la nube, pero guardado localmente");
-                  });
+                  }
+                };
+
+                actualizarFechaSeguro();
               }
 
               try {
@@ -805,7 +875,7 @@ export default function Index() {
             notaTexto={notaTexto}
             setNotaTexto={setNotaTexto}
             notas={notasHook.notas}
-            guardarNota={async (texto, categoria) => {
+            guardarNota={async (texto: string, categoria: string) => {
               const success = await notasHook.agregarNota(texto, categoria);
               if (success) {
                 mostrarToast("📝 Nota guardada");
@@ -814,7 +884,7 @@ export default function Index() {
               }
               return success;
             }}
-            eliminarNota={async (notaId) => {
+            eliminarNota={async (notaId: string) => {
               const success = await notasHook.eliminarNota(notaId);
               if (success) {
                 mostrarToast("🗑️ Nota eliminada");
@@ -823,7 +893,7 @@ export default function Index() {
               }
               return success;
             }}
-            editarNota={async (notaId, texto, categoria) => {
+            editarNota={async (notaId: string, texto: string, categoria: string) => {
               const success = await notasHook.editarNota(notaId, texto, categoria);
               if (success) {
                 mostrarToast("✏️ Nota actualizada");
@@ -833,6 +903,7 @@ export default function Index() {
               return success;
             }}
             usuarioActual={usuarioActual}
+            mostrarToast={mostrarToast}
           />
         );
 
@@ -944,74 +1015,67 @@ export default function Index() {
     }
   };
 
-  // Mostrar loading si no hay usuario seleccionado pero sí coupleId
-  if (coupleId && !usuarioActual && usuarios.length > 0) {
+  // Mostrar loading global mientras se sincroniza con Supabase
+  if (coupleId && (!usuarioActual || !appLoaded)) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bgTop }}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ color: colors.text, marginTop: 20 }}>Cargando usuario...</Text>
+        <Text style={{ color: colors.text, marginTop: 20, fontWeight: '600' }}>
+          {!usuarioActual ? "Cargando perfil..." : "Sincronizando tus planes..."}
+        </Text>
       </View>
     );
   }
 
   return (
     <View style={{ flex: 1 }}>
-      {renderScreen()}
-
-      {/* Botón flotante de estadísticas - SOLO EN INICIO */}
-      {view === 'inicio' && (
-        <>
+      {/* ✅ CABECERA REDISEÑADA (Usuario Izq, Ajustes Der) */}
+      {coupleId && view === 'inicio' && (
+        <View style={{
+          position: 'absolute',
+          top: 50,
+          left: 20,
+          right: 20,
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          zIndex: 100
+        }}>
+          {/* IZQUIERDA: Usuario */}
           <TouchableOpacity
-            onPress={() => setView("estadisticas")}
+            onPress={() => setMostrarSeleccionUsuario(true)}
             style={{
-              position: "absolute",
-              bottom: 20,
-              left: 20,
-              backgroundColor: colors.primary,
-              width: 50,
-              height: 50,
-              borderRadius: 12,
-              justifyContent: "center",
-              alignItems: "center",
-              shadowColor: "#000",
-              shadowOpacity: 0.2,
-              shadowRadius: 6,
-              elevation: 5,
-              borderWidth: 2,
-              borderColor: "#FFB3D1",
-              zIndex: 100,
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              borderRadius: 20,
+              padding: 4,
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingRight: 10
             }}
           >
-            <Text style={{ fontSize: 24, color: "white" }}>📊</Text>
+            <Text style={{ fontSize: 24 }}>
+              {usuarioActual?.avatar_url || '👤'}
+            </Text>
+            <Text style={{ color: 'white', fontWeight: 'bold', marginLeft: 5 }}>
+              {usuarioActual?.nombre || 'Perfil'}
+            </Text>
           </TouchableOpacity>
 
-          {/* ✅ NUEVO: Botón para cambiar usuario */}
-          {usuarioActual && (
-            <TouchableOpacity
-              onPress={() => setMostrarSeleccionUsuario(true)}
-              style={{
-                position: "absolute",
-                top: 40,
-                right: 20,
-                backgroundColor: colors.card,
-                paddingVertical: 8,
-                paddingHorizontal: 15,
-                borderRadius: 20,
-                flexDirection: "row",
-                alignItems: "center",
-                borderWidth: 2,
-                borderColor: colors.primary,
-                zIndex: 100,
-              }}
-            >
-              <Text style={{ color: colors.text, fontWeight: "700", marginRight: 8 }}>
-                {usuarioActual.nombre}
-              </Text>
-              <Text>👤</Text>
-            </TouchableOpacity>
-          )}
-        </>
+          {/* DERECHA: Ajustes */}
+          <TouchableOpacity
+            onPress={() => setView('ajustes')}
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              padding: 8,
+              borderRadius: 20
+            }}
+          >
+            <Text style={{ fontSize: 24 }}>⚙️</Text>
+          </TouchableOpacity>
+        </View>
       )}
+
+      {/* CONTENIDO PRINCIPAL */}
+      {renderScreen()}
 
       {/* Toast simple */}
       {toast.visible && (

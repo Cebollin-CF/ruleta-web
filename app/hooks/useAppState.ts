@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../supabaseClient';
 import { Alert } from 'react-native';
+import colors from '../utils/colors';
 
 export const useAppState = () => {
-  const [loading, setLoading] = useState(true);
-  const [view, setView] = useState('vinculo');
-  /** @type {[string | null, React.Dispatch<React.SetStateAction<string | null>>]} */
-  const [coupleId, setCoupleId] = useState(null);
-  const [fechaAniversario, setFechaAniversario] = useState(null);
-  const [toast, setToast] = useState({ text: '', visible: false });
+  const [loading, setLoading] = useState<boolean>(true);
+  const [view, setView] = useState<string>('vinculo');
+  const [coupleId, setCoupleId] = useState<string | null>(null);
+  const [fechaAniversario, setFechaAniversario] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ text: string; visible: boolean; tipo?: string; color?: string }>({ text: '', visible: false });
 
   useEffect(() => {
     const init = async () => {
@@ -40,11 +40,30 @@ export const useAppState = () => {
     init();
   }, []);
 
-  // 1. FUNCIÓN PARA CREAR (Solo para IDs nuevos)
+  const mostrarToast = (mensaje: string, tipo: 'success' | 'error' | 'warning' | 'info' = "success", emoji?: string) => {
+    const colores: Record<string, string> = {
+      success: colors?.primary || "#6BD18A",
+      error: colors?.danger || "#FF6B6B",
+      warning: colors?.warning || "#F7C56D",
+      info: colors?.secondary || "#B28DFF"
+    };
+
+    const textoFinal = emoji ? `${emoji} ${mensaje}` : mensaje;
+
+    setToast({
+      text: textoFinal,
+      visible: true,
+      tipo,
+      color: colores[tipo] || colores.success
+    });
+
+    setTimeout(() => setToast({ text: '', visible: false }), 3000);
+  };
+
   const crearPareja = async () => {
     try {
       setLoading(true);
-      const newId = Math.random().toString(36).substring(2, 8).toUpperCase(); // ID más corto y bonito
+      const newId = Math.random().toString(36).substring(2, 8).toUpperCase();
 
       const initialData = {
         planes: [],
@@ -62,7 +81,6 @@ export const useAppState = () => {
         logrosDesbloqueados: [],
       };
 
-      // Usamos .insert() en lugar de .upsert() por seguridad
       const { error } = await supabase
         .from('app_state')
         .insert([{ id: newId, contenido: initialData }]);
@@ -82,56 +100,34 @@ export const useAppState = () => {
     }
   };
 
-  // useAppState.js - Añade después de mostrarToast
-  const mostrarNotificacionGuardado = (mensaje, tipo = "success") => {
-    const colores = {
-      success: colors.primary,
-      error: colors.danger,
-      warning: colors.warning,
-      info: colors.secondary
-    };
-
-    setToast({
-      text: mensaje,
-      visible: true,
-      tipo: tipo,
-      color: colores[tipo] || colors.primary
-    });
-
-    setTimeout(() => setToast({ text: '', visible: false }), 3000);
-  };
-
-  // 2. FUNCIÓN PARA VINCULAR (Para recuperar planes borrados o conectar otro móvil)
-  const conectarPareja = async (idAMano) => {
+  const conectarPareja = async (idAMano: string) => {
     if (!idAMano || idAMano.trim() === '') {
       Alert.alert("Error", "Introduce un código válido.");
-      return;
+      return { success: false };
     }
 
     try {
       setLoading(true);
       const idLimpio = idAMano.trim();
 
-      // Buscamos si el ID existe y traemos sus datos
       const { data, error } = await supabase
         .from('app_state')
         .select('contenido')
         .eq('id', idLimpio)
-        .single();
+        .maybeSingle();
 
       if (error || !data) {
         Alert.alert("Vínculo no encontrado", "Este código no existe en la base de datos.");
         return { success: false };
       }
 
-      // SI EXISTE: Guardamos localmente y cambiamos de vista
-      // IMPORTANTE: NO hacemos upsert aquí, solo leemos.
       await AsyncStorage.setItem('couple_id', idLimpio);
       setCoupleId(idLimpio);
 
-      if (data.contenido?.fechaAniversario) {
-        setFechaAniversario(data.contenido.fechaAniversario);
-        await AsyncStorage.setItem('fecha_aniversario', data.contenido.fechaAniversario);
+      const contenido = data.contenido as any;
+      if (contenido?.fechaAniversario) {
+        setFechaAniversario(contenido.fechaAniversario);
+        await AsyncStorage.setItem('fecha_aniversario', contenido.fechaAniversario);
       }
 
       setView('inicio');
@@ -141,33 +137,10 @@ export const useAppState = () => {
     } catch (error) {
       console.error('Error al conectar:', error);
       Alert.alert("Error", "Hubo un problema al conectar.");
+      return { success: false };
     } finally {
       setLoading(false);
     }
-  };
-
-
-  const mostrarToast = (text, tipo = "success") => {
-    const colores = {
-      success: "#6BD18A",  // Verde para éxito
-      error: "#FF6B6B",    // Rojo para errores
-      warning: "#F7C56D",  // Amarillo para advertencias
-      info: "#B28DFF"      // Lila para información
-    };
-
-    setToast({
-      text,
-      visible: true,
-      tipo,
-      color: colores[tipo] || colores.success
-    });
-
-    setTimeout(() => setToast({ text: '', visible: false }), 3000);
-  };
-
-  // Agrega esta función para toast con emojis
-  const mostrarNotificacion = (mensaje, emoji = "✅") => {
-    mostrarToast(`${emoji} ${mensaje}`);
   };
 
   const eliminarPareja = async () => {
@@ -175,11 +148,15 @@ export const useAppState = () => {
       await AsyncStorage.removeItem('couple_id');
       setCoupleId(null);
       setView('vinculo');
-      mostrarToast('Vínculo eliminado localmente');
+      mostrarToast('Vínculo eliminado localmente', 'info', '🚽');
     } catch (error) {
       console.error('Error eliminando pareja:', error);
     }
   };
+
+  // Alias para retrocompatibilidad y comodidad
+  const mostrarNotificacion = (mensaje: string, emoji: string = "✅") => mostrarToast(mensaje, 'success', emoji);
+  const mostrarNotificacionGuardado = (mensaje: string) => mostrarToast(mensaje, 'success', '💾');
 
   return {
     loading,
@@ -194,8 +171,7 @@ export const useAppState = () => {
     conectarPareja,
     eliminarPareja,
     mostrarToast,
-    mostrarNotificacionGuardado,
     mostrarNotificacion,
+    mostrarNotificacionGuardado
   };
-
 };

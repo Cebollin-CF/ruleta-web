@@ -1,24 +1,32 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
+import { Nota } from '../utils/types';
 
-export const useNotas = (coupleId, initialNotas = []) => {
-  const [notas, setNotas] = useState(initialNotas);
+export const useNotas = (coupleId: string | null) => {
+  const [notas, setNotas] = useState<Nota[]>([]);
+  const [loaded, setLoaded] = useState(false); // ✅ Bandera de carga
 
   // ✅ FUNCIÓN MEJORADA PARA GUARDAR EN SUPABASE
-  const guardarEnSupabase = async (nuevasNotas) => {
+  const guardarEnSupabase = async (nuevasNotas: Nota[]) => {
     if (!coupleId) {
       console.error("❌ No hay coupleId para guardar notas");
       return false;
     }
 
+    // 🛡️ SEGURIDAD: Evitar sobreescribir con datos vacíos si no se ha cargado
+    if (!loaded && nuevasNotas.length === 0 && notas.length === 0) {
+      console.warn("⚠️ Guardado de notas ignorado: Pendiente de carga");
+      return false;
+    }
+
     try {
       console.log("💾 Guardando notas en Supabase...");
-      
+
       const { data: registro, error: fetchError } = await supabase
         .from('app_state')
         .select('contenido')
         .eq('id', coupleId)
-        .single();
+        .maybeSingle();
 
       if (fetchError) {
         console.error("❌ Error obteniendo datos:", fetchError);
@@ -51,13 +59,13 @@ export const useNotas = (coupleId, initialNotas = []) => {
   };
 
   // ✅ AGREGAR NOTA
-  const agregarNota = async (texto, categoria = "💭 General") => {
-    if (!coupleId || !texto.trim()) {
-      console.error("❌ Datos inválidos para agregar nota");
+  const agregarNota = async (texto: string, categoria = "💭 General") => {
+    if (!coupleId || !texto.trim() || !loaded) {
+      console.error("❌ Datos inválidos o hook no cargado para agregar nota");
       return false;
     }
 
-    const nuevaNota = {
+    const nuevaNota: Nota = {
       id: Date.now().toString() + Math.random().toString(36).substring(2),
       texto: texto.trim(),
       categoria: categoria,
@@ -65,43 +73,29 @@ export const useNotas = (coupleId, initialNotas = []) => {
     };
 
     const nuevasNotas = [nuevaNota, ...notas];
-    
-    setNotas(nuevasNotas);
-
     const success = await guardarEnSupabase(nuevasNotas);
-    
+
     if (success) {
+      setNotas(nuevasNotas);
       console.log("✅ Nota agregada y guardada");
-    } else {
-      console.error("❌ Nota no se pudo guardar en Supabase");
-      setNotas(notas);
     }
-    
+
     return success;
   };
 
   // ✅ ELIMINAR NOTA
-  const eliminarNota = async (notaId) => {
-    if (!coupleId) {
-      console.error("❌ No hay coupleId para eliminar nota");
-      return false;
-    }
+  const eliminarNota = async (id: string) => {
+    if (!coupleId || !loaded) return false;
 
     try {
-      const nuevasNotas = notas.filter(n => n.id !== notaId);
-      
-      setNotas(nuevasNotas);
-
+      const nuevasNotas = notas.filter(n => n.id !== id);
       const success = await guardarEnSupabase(nuevasNotas);
-      
+
       if (success) {
-        console.log("✅ Nota eliminada");
+        setNotas(nuevasNotas);
         return true;
-      } else {
-        console.error("❌ Nota no se pudo eliminar de Supabase");
-        setNotas(notas);
-        return false;
       }
+      return false;
     } catch (error) {
       console.error("Error al eliminar nota:", error);
       return false;
@@ -109,41 +103,35 @@ export const useNotas = (coupleId, initialNotas = []) => {
   };
 
   // ✅ EDITAR NOTA
-  const editarNota = async (notaId, nuevoTexto, nuevaCategoria = null) => {
-    if (!coupleId) {
-      console.error("❌ No hay coupleId para editar nota");
-      return false;
-    }
+  const editarNota = async (notaId: string, nuevoTexto: string, nuevaCategoria: string | null = null) => {
+    if (!coupleId || !loaded) return false;
 
     const nuevasNotas = notas.map(n =>
-      n.id === notaId 
-        ? { 
-            ...n, 
-            texto: nuevoTexto, 
-            categoria: nuevaCategoria !== null ? nuevaCategoria : n.categoria 
-          }
+      n.id === notaId
+        ? {
+          ...n,
+          texto: nuevoTexto,
+          categoria: nuevaCategoria !== null ? nuevaCategoria : n.categoria
+        }
         : n
     );
 
-    setNotas(nuevasNotas);
-
     const success = await guardarEnSupabase(nuevasNotas);
-    
+
     if (success) {
-      console.log("✅ Nota editada");
-    } else {
-      console.error("❌ Nota no se pudo editar en Supabase");
-      setNotas(notas);
+      setNotas(nuevasNotas);
     }
-    
+
     return success;
   };
 
-  return { 
-    notas, 
+  return {
+    notas,
+    loaded,
     setNotas,
+    setLoaded,
     agregarNota,
-    eliminarNota, // ✅ OBLIGATORIO INCLUIR
+    eliminarNota,
     editarNota,
   };
 };

@@ -1,8 +1,21 @@
 import React from "react";
-import { Text, ScrollView, TouchableOpacity, View } from "react-native";
+import { Text, ScrollView, TouchableOpacity, View, StyleSheet } from "react-native";
 import { MotiView } from "moti";
 import Container from "../components/Container";
 import colors from "../utils/colors";
+import { Desafio } from "../utils/types";
+
+interface DesafiosScreenProps {
+  setView: (view: string) => void;
+  desafioActual: Desafio | null;
+  progreso: number;
+  completarDesafio: () => Promise<any>;
+  generarNuevoDesafio: () => Promise<any>;
+  desafiosDisponibles: Desafio[];
+  ultimaActualizacion: string | null;
+  intentosCambio: number;
+  mostrarToast: (mensaje: string, tipo?: 'success' | 'error' | 'warning' | 'info', emoji?: string) => void;
+}
 
 export default function DesafiosScreen({
   setView,
@@ -14,297 +27,311 @@ export default function DesafiosScreen({
   ultimaActualizacion,
   intentosCambio,
   mostrarToast,
-}) {
+}: DesafiosScreenProps) {
   const porcentaje = desafioActual ? Math.min((progreso / desafioActual.meta) * 100, 100) : 0;
   const hoy = new Date().toISOString().split('T')[0];
-  const completadoHoy = desafioActual?.meta > 1 && ultimaActualizacion === hoy;
+  const completadoHoy = (desafioActual?.meta || 0) > 1 && ultimaActualizacion === hoy;
   const estaBloqueado = progreso > 0 && progreso < (desafioActual?.meta || 0);
 
   const handleCompletar = async () => {
     if (completadoHoy) {
-      if (mostrarToast) mostrarToast("⏳ Ya has avanzado hoy. ¡Vuelve mañana!", "info");
+      mostrarToast("Ya has avanzado hoy. ¡Vuelve mañana!", "info", "⏳");
       return;
     }
 
     const resultado = await completarDesafio();
     if (resultado?.success) {
       if (resultado.completado) {
-        if (mostrarToast) mostrarToast("🎉 ¡Desafío completado!", "success");
+        mostrarToast("¡Desafío completado!", "success", "🎉");
       } else {
-        if (mostrarToast) mostrarToast("✅ ¡Progreso registrado!", "success");
+        mostrarToast("¡Progreso registrado!", "success", "✅");
       }
     } else if (resultado?.error) {
-      if (mostrarToast) mostrarToast(`❌ ${resultado.error}`, "error");
+      mostrarToast(resultado.error, "error", "❌");
+    }
+  };
+
+  const cambiarDesafio = async () => {
+    if (estaBloqueado) {
+      mostrarToast("No puedes cambiar un desafío en progreso", "warning", "⚠️");
+      return;
+    }
+
+    const resultado = await generarNuevoDesafio();
+    if (resultado?.success) {
+      mostrarToast("Nuevo desafío generado", "success", "🎲");
+    } else if (resultado?.error) {
+      mostrarToast(resultado.error, "error", "❌");
     }
   };
 
   return (
     <Container>
-      <MotiView
-        from={{ opacity: 0, translateY: -20 }}
-        animate={{ opacity: 1, translateY: 0 }}
-        transition={{ type: 'timing', duration: 500 }}
-      >
-        <Text
-          style={{
-            color: colors.accent,
-            fontSize: 32,
-            fontWeight: "800",
-            marginBottom: 20,
-            textAlign: "center",
-          }}
-        >
-          🎯 Desafíos de pareja
-        </Text>
-      </MotiView>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.titulo}>🏆 Desafío de Pareja</Text>
 
-      {/* Desafío actual */}
-      {desafioActual ? (
-        <MotiView
-          from={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring", damping: 15 }}
-          style={{
-            backgroundColor: colors.primary,
-            padding: 24,
-            borderRadius: 20,
-            marginBottom: 20,
-            borderWidth: 3,
-            borderColor: "#FFB3D1",
-            shadowColor: colors.primary,
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: 0.3,
-            shadowRadius: 10,
-            elevation: 8,
-          }}
-        >
+        {desafioActual ? (
           <MotiView
-            animate={{ scale: [1, 1.1, 1] }}
-            transition={{
-              type: "timing",
-              duration: 2000,
-              loop: true,
-              repeatReverse: true,
-            }}
+            from={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            style={styles.card}
           >
-            <Text style={{ color: "#fff", fontSize: 60, textAlign: "center", marginBottom: 10 }}>
-              {desafioActual.emoji}
-            </Text>
-          </MotiView>
+            <Text style={styles.emoji}>{desafioActual.emoji}</Text>
+            <Text style={styles.desafioTexto}>{desafioActual.texto}</Text>
 
-          <Text style={{ color: "#fff", fontSize: 20, textAlign: "center", fontWeight: "800", marginBottom: 16 }}>
-            {desafioActual.texto}
-          </Text>
+            <View style={styles.progresoContainer}>
+              <View style={styles.barraFondo}>
+                <View style={[styles.barraProgreso, { width: `${porcentaje}%` }]} />
+              </View>
+              <Text style={styles.progresoTexto}>
+                {progreso} / {desafioActual.meta} {desafioActual.duracion}
+              </Text>
+            </View>
 
-          {/* Barra de progreso */}
-          <View
-            style={{
-              backgroundColor: "rgba(255,255,255,0.3)",
-              height: 16,
-              borderRadius: 8,
-              overflow: "hidden",
-              marginBottom: 12,
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.5)"
-            }}
-          >
-            <MotiView
-              from={{ width: "0%" }}
-              animate={{ width: `${porcentaje}%` }}
-              transition={{ type: "timing", duration: 800 }}
-              style={{
-                backgroundColor: "#fff",
-                height: "100%",
-                borderRadius: 8,
-              }}
-            />
-          </View>
-
-          <Text style={{ color: "#fff", textAlign: "center", fontSize: 16, fontWeight: "700" }}>
-            {progreso} / {desafioActual.meta} completado
-          </Text>
-
-          {/* Botones */}
-          <View style={{ flexDirection: "row", gap: 10, marginTop: 20 }}>
             <TouchableOpacity
+              style={[styles.botonPrincipal, (completadoHoy || estaBloqueado) && styles.botonDeshabilitado]}
               onPress={handleCompletar}
-              activeOpacity={completadoHoy ? 1 : 0.7}
-              style={{
-                flex: 1,
-                backgroundColor: completadoHoy ? colors.muted : colors.success,
-                paddingVertical: 14,
-                borderRadius: 16,
-                alignItems: "center",
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.2,
-                shadowRadius: 4,
-                elevation: 4,
-                borderWidth: 2,
-                borderColor: "rgba(255,255,255,0.3)"
-              }}
+              disabled={completadoHoy || estaBloqueado}
             >
-              <Text style={{ color: "#fff", fontWeight: "800", fontSize: 16 }}>
-                {completadoHoy ? "⏳ Vuelve mañana" : "✓ Marcar +1"}
+              <Text style={styles.botonTexto}>
+                {completadoHoy ? "¡Listo por hoy! ✨" : "Completar paso ✅"}
               </Text>
             </TouchableOpacity>
 
-            {!estaBloqueado && (
-              <TouchableOpacity
-                onPress={async () => {
-                  const res = await generarNuevoDesafio();
-                  if (res?.error && mostrarToast) {
-                    mostrarToast(`⚠️ ${res.error}`, "warning");
-                  }
-                }}
-                activeOpacity={intentosCambio >= 5 ? 1 : 0.7}
-                style={{
-                  flex: 1,
-                  backgroundColor: intentosCambio >= 5 ? colors.muted : "rgba(255,255,255,0.2)",
-                  paddingVertical: 14,
-                  borderRadius: 16,
-                  alignItems: "center",
-                  borderWidth: 2,
-                  borderColor: "rgba(255,255,255,0.3)"
-                }}
-              >
-                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 16 }}>
-                  {intentosCambio >= 5 ? "Máx. cambios" : `🔄 Cambiar (${intentosCambio}/5)`}
-                </Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={[styles.botonSecundario, estaBloqueado && styles.botonDeshabilitado]}
+              onPress={cambiarDesafio}
+              disabled={estaBloqueado}
+            >
+              <Text style={styles.botonSecundarioTexto}>
+                Cambiar desafío ({5 - intentosCambio} restantes) 🎲
+              </Text>
+            </TouchableOpacity>
+          </MotiView>
+        ) : (
+          <View style={styles.sinDesafio}>
+            <Text style={styles.textoVacio}>No hay desafío activo</Text>
+            <TouchableOpacity style={styles.botonPrincipal} onPress={generarNuevoDesafio}>
+              <Text style={styles.botonTexto}>Generar desafío 🎲</Text>
+            </TouchableOpacity>
           </View>
+        )}
 
-          {estaBloqueado && (
-            <MotiView
-              from={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              style={{ marginTop: 10, alignItems: 'center' }}
-            >
-              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontStyle: 'italic' }}>
-                🔒 Desafío en curso. Termínalo para cambiar.
-              </Text>
-            </MotiView>
-          )}
-        </MotiView>
-      ) : (
-        <MotiView
-          from={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring" }}
-        >
-          <TouchableOpacity
-            onPress={generarNuevoDesafio}
-            style={{
-              backgroundColor: colors.primary,
-              padding: 30,
-              borderRadius: 20,
-              alignItems: "center",
-              marginBottom: 20,
-              borderWidth: 3,
-              borderColor: "#FFB3D1",
-              shadowColor: colors.primary,
-              shadowOffset: { width: 0, height: 5 },
-              shadowOpacity: 0.3,
-              shadowRadius: 10,
-              elevation: 8,
-            }}
-          >
-            <MotiView
-              animate={{ rotate: ['0deg', '10deg', '-10deg', '0deg'] }}
-              transition={{ loop: true, duration: 2000, repeatReverse: false }}
-            >
-              <Text style={{ fontSize: 60, marginBottom: 10 }}>🎲</Text>
-            </MotiView>
-            <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800" }}>
-              Generar un Desafío
-            </Text>
-            <Text style={{ color: "rgba(255,255,255,0.9)", fontSize: 16, marginTop: 5 }}>
-              ¡Atrévete a probar suerte!
-            </Text>
-          </TouchableOpacity>
-        </MotiView>
-      )}
+        <View style={styles.infoSeccion}>
+          <Text style={styles.infoTitulo}>¿Cómo funciona?</Text>
+          <Text style={styles.infoTexto}>
+            Cada desafío tiene una meta. Registra tu progreso cada día para completarlo y ganar puntos.
+            ¡No te saltes ningún día!
+          </Text>
+        </View>
 
-      {/* Lista de desafíos disponibles */}
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-        <Text style={{ color: colors.text, fontSize: 18, fontWeight: "700", marginBottom: 12, marginTop: 10 }}>
-          📚 Catálogo de Ideas
-        </Text>
+        {/* LISTA DE DESAFÍOS DISPONIBLES */}
+        <View style={styles.listaDesafiosSection}>
+          <Text style={styles.listaDesafiosTitulo}>📋 Desafíos Disponibles</Text>
 
-        {["corto", "medio", "largo", "unico"].map((tipo) => {
-          const titulo = tipo === "corto" ? "⚡ Rápidos (1-3 días)" :
-            tipo === "medio" ? "📅 Semanales (5-7 días)" :
-              tipo === "largo" ? "🏆 Épicos (10+ días)" : "⭐ Especiales (1 vez)";
-          const colorBorde = tipo === "corto" ? "#FFD93D" :
-            tipo === "medio" ? "#6BCF7F" :
-              tipo === "largo" ? "#FF6B9D" : "#A66CFF";
-
-          const items = desafiosDisponibles?.filter(d => d.duracion === tipo);
-          if (!items?.length) return null;
-
-          return (
-            <View key={tipo}>
-              <Text style={{ color: colors.accent, fontSize: 16, fontWeight: "800", marginBottom: 8, marginTop: 12 }}>
-                {titulo}
-              </Text>
-              {items.map((desafio, idx) => (
-                <MotiView
-                  key={`${tipo}-${idx}`}
-                  from={{ opacity: 0, translateX: -20 }}
-                  animate={{ opacity: 1, translateX: 0 }}
-                  transition={{ delay: idx * 50 + 200 }}
-                  style={{
-                    backgroundColor: colors.card,
-                    padding: 16,
-                    borderRadius: 16,
-                    marginBottom: 10,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    borderWidth: 2,
-                    borderColor: colorBorde, // Borde según tipo
-                    shadowColor: "#000",
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 4,
-                    elevation: 2,
-                  }}
-                >
-                  <Text style={{ fontSize: 32, marginRight: 15 }}>{desafio.emoji}</Text>
+          {Object.entries(
+            desafiosDisponibles.reduce((acc: { [key: string]: Desafio[] }, d) => {
+              const cat = d.categoria || "Otros";
+              if (!acc[cat]) acc[cat] = [];
+              acc[cat].push(d);
+              return acc;
+            }, {})
+          ).map(([categoria, lista]) => (
+            <View key={categoria} style={styles.categoriaGrupo}>
+              <Text style={styles.categoriaSubtitulo}>{categoria.toUpperCase()}</Text>
+              {lista.map((d, index) => (
+                <View key={index} style={styles.desafioListItem}>
+                  <Text style={styles.desafioListEmoji}>{d.emoji}</Text>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: colors.text, fontSize: 15, fontWeight: "500" }}>{desafio.texto}</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                      <View style={{ backgroundColor: colorBorde, width: 8, height: 8, borderRadius: 4, marginRight: 6 }} />
-                      <Text style={{ color: colors.muted, fontSize: 12, fontWeight: "600" }}>Meta: {desafio.meta} {desafio.meta === 1 ? 'vez' : 'veces'}</Text>
-                    </View>
+                    <Text style={styles.desafioListTexto}>{d.texto}</Text>
+                    <Text style={styles.desafioListMeta}>Meta: {d.meta} {d.duracion}</Text>
                   </View>
-                </MotiView>
+                </View>
               ))}
             </View>
-          );
-        })}
-      </ScrollView>
+          ))}
+        </View>
 
-      <TouchableOpacity
-        onPress={() => setView("inicio")}
-        style={{
-          position: "absolute",
-          bottom: 30,
-          left: 20,
-          backgroundColor: colors.warning,
-          paddingVertical: 12,
-          paddingHorizontal: 20,
-          borderRadius: 30,
-          shadowColor: colors.warning,
-          shadowOpacity: 0.4,
-          shadowRadius: 10,
-          elevation: 6,
-        }}
-      >
-        <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
-          ⬅ Volver
-        </Text>
-      </TouchableOpacity>
+        <TouchableOpacity onPress={() => setView("inicio")} style={styles.botonVolver}>
+          <Text style={styles.botonVolverTexto}>⬅ Volver</Text>
+        </TouchableOpacity>
+      </ScrollView>
     </Container>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    paddingBottom: 100,
+  },
+  titulo: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: colors.accent,
+    textAlign: "center",
+    marginBottom: 30,
+  },
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: 30,
+    padding: 30,
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: colors.primary + "40",
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  emoji: {
+    fontSize: 70,
+    marginBottom: 20,
+  },
+  desafioTexto: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: colors.text,
+    textAlign: "center",
+    marginBottom: 25,
+    lineHeight: 30,
+  },
+  progresoContainer: {
+    width: "100%",
+    marginBottom: 30,
+  },
+  barraFondo: {
+    height: 15,
+    backgroundColor: colors.primary + "20",
+    borderRadius: 10,
+    overflow: "hidden",
+    marginBottom: 10,
+  },
+  barraProgreso: {
+    height: "100%",
+    backgroundColor: colors.primary,
+  },
+  progresoTexto: {
+    color: colors.muted,
+    fontSize: 16,
+    fontWeight: "600",
+    textAlign: "right",
+  },
+  botonPrincipal: {
+    backgroundColor: colors.primary,
+    width: "100%",
+    paddingVertical: 18,
+    borderRadius: 20,
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  botonDeshabilitado: {
+    opacity: 0.5,
+  },
+  botonTexto: {
+    color: "#FFF",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  botonSecundario: {
+    paddingVertical: 10,
+    width: "100%",
+    alignItems: "center",
+  },
+  botonSecundarioTexto: {
+    color: colors.muted,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  sinDesafio: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 40,
+  },
+  textoVacio: {
+    color: colors.muted,
+    fontSize: 18,
+    marginBottom: 20,
+  },
+  infoSeccion: {
+    marginTop: 40,
+    padding: 20,
+  },
+  infoTitulo: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 10,
+  },
+  infoTexto: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  botonVolver: {
+    position: "absolute",
+    bottom: 30,
+    left: 20,
+    backgroundColor: colors.warning,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 30,
+  },
+  botonVolverTexto: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  listaDesafiosSection: {
+    marginTop: 20,
+    paddingHorizontal: 20,
+    marginBottom: 40,
+  },
+  listaDesafiosTitulo: {
+    color: colors.accent,
+    fontSize: 24,
+    fontWeight: "800",
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  categoriaGrupo: {
+    marginBottom: 25,
+  },
+  categoriaSubtitulo: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 2,
+    marginBottom: 12,
+    marginLeft: 5,
+  },
+  desafioListItem: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    padding: 15,
+    borderRadius: 15,
+    marginBottom: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFFFFF10',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  desafioListEmoji: {
+    fontSize: 24,
+    marginRight: 15,
+  },
+  desafioListTexto: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  desafioListMeta: {
+    color: colors.muted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+});

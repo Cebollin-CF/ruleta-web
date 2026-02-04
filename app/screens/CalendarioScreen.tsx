@@ -1,15 +1,23 @@
 import React, { useState, useRef } from "react";
-import { 
-  Text, 
-  TouchableOpacity, 
-  View, 
-  StyleSheet, 
+import {
+  Text,
+  TouchableOpacity,
+  View,
+  StyleSheet,
   Alert,
-  Modal 
+  Modal
 } from "react-native";
 import { Calendar } from "react-native-calendars";
 import Container from "../components/Container";
 import colors from "../utils/colors";
+
+interface CalendarioScreenProps {
+  setView: (view: string) => void;
+  markedDates: any;
+  onDayPress: (day: any) => void;
+  fechaAniversario: string | null;
+  setFechaAniversario: (fecha: string) => void;
+}
 
 export default function CalendarioScreen({
   setView,
@@ -17,13 +25,13 @@ export default function CalendarioScreen({
   onDayPress,
   fechaAniversario,
   setFechaAniversario,
-}) {
+}: CalendarioScreenProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().split('T')[0]);
   const [showAniversarioPicker, setShowAniversarioPicker] = useState(false);
   const calendarRef = useRef(null);
-  
+
   // Formatear fecha bonita
-  const formatearFecha = (fechaStr) => {
+  const formatearFecha = (fechaStr: string | null) => {
     if (!fechaStr) return "No establecida";
     const fecha = new Date(fechaStr);
     return fecha.toLocaleDateString('es-ES', {
@@ -37,15 +45,15 @@ export default function CalendarioScreen({
   // Calcular días juntos CORRECTAMENTE
   const calcularDiasJuntos = () => {
     if (!fechaAniversario) return 0;
-    
+
     try {
       const inicio = new Date(fechaAniversario);
       const hoy = new Date();
-      
+
       // Normalizar horas
       inicio.setHours(0, 0, 0, 0);
       hoy.setHours(0, 0, 0, 0);
-      
+
       const diferenciaMs = hoy.getTime() - inicio.getTime();
       return Math.floor(diferenciaMs / (1000 * 60 * 60 * 24));
     } catch (e) {
@@ -55,18 +63,18 @@ export default function CalendarioScreen({
   };
 
   // Navegación entre meses - FUNCIONAL
-  const cambiarMes = (direccion) => {
+  const cambiarMes = (direccion: "prev" | "next") => {
     const current = new Date(currentMonth);
-    
+
     if (direccion === "prev") {
       current.setMonth(current.getMonth() - 1);
     } else {
       current.setMonth(current.getMonth() + 1);
     }
-    
+
     const newMonth = current.toISOString().split('T')[0];
     setCurrentMonth(newMonth);
-    
+
     // Forzar actualización del calendario
     if (calendarRef.current) {
       // El Calendar de react-native-calendars necesita key for update
@@ -75,17 +83,17 @@ export default function CalendarioScreen({
   };
 
   // Ir a mes específico
-  const irAMesEspecifico = (mes, año) => {
+  const irAMesEspecifico = (mes: number, año: number) => {
     const nuevaFecha = new Date(año, mes - 1, 1);
     setCurrentMonth(nuevaFecha.toISOString().split('T')[0]);
   };
 
   // Cambiar fecha de aniversario
-  const cambiarAniversario = (nuevaFecha) => {
+  const cambiarAniversario = (nuevaFecha: string) => {
     if (setFechaAniversario) {
       setFechaAniversario(nuevaFecha);
       setShowAniversarioPicker(false);
-      
+
       Alert.alert(
         "¡Fecha actualizada!",
         `Vuestra fecha de inicio es ahora: ${formatearFecha(nuevaFecha)}\n\nLleváis ${calcularDiasJuntos()} días juntos 💕`,
@@ -103,12 +111,12 @@ export default function CalendarioScreen({
       {/* Contador de días */}
       <View style={styles.contadorContainer}>
         <Text style={styles.contadorTexto}>
-          {fechaAniversario 
+          {fechaAniversario
             ? `Lleváis ${calcularDiasJuntos()} días juntos 💕`
             : "No has establecido fecha de inicio"
           }
         </Text>
-        
+
         <TouchableOpacity
           onPress={() => setShowAniversarioPicker(true)}
           style={styles.botonEditarFecha}
@@ -117,7 +125,7 @@ export default function CalendarioScreen({
             {fechaAniversario ? "✏️ Cambiar fecha" : "📅 Establecer fecha"}
           </Text>
         </TouchableOpacity>
-        
+
         {fechaAniversario && (
           <Text style={styles.fechaTexto}>
             Inicio: {formatearFecha(fechaAniversario)}
@@ -136,9 +144,9 @@ export default function CalendarioScreen({
 
         <View style={styles.mesActualContainer}>
           <Text style={styles.mesActualTexto}>
-            {new Date(currentMonth).toLocaleDateString('es-ES', { 
-              month: 'long', 
-              year: 'numeric' 
+            {new Date(currentMonth).toLocaleDateString('es-ES', {
+              month: 'long',
+              year: 'numeric'
             }).toUpperCase()}
           </Text>
         </View>
@@ -154,7 +162,6 @@ export default function CalendarioScreen({
       {/* Calendario - CON key para forzar actualización */}
       <Calendar
         key={currentMonth} // ✅ FORZAR RE-RENDER AL CAMBIAR MES
-        ref={calendarRef}
         current={currentMonth}
         markedDates={markedDates}
         onDayPress={onDayPress}
@@ -200,7 +207,7 @@ export default function CalendarioScreen({
             <Text style={styles.modalTitulo}>
               {fechaAniversario ? "📅 Cambiar fecha de inicio" : "🎉 ¿Cuándo empezasteis?"}
             </Text>
-            
+
             <Calendar
               current={fechaAniversario || new Date().toISOString().split('T')[0]}
               onDayPress={(day) => {

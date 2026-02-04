@@ -1,10 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  ScrollView, 
-  Modal, 
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  Modal,
   StyleSheet,
   Animated,
   Easing
@@ -13,18 +13,19 @@ import Container from '../components/Container';
 import Boton from '../components/Boton';
 import colors from '../utils/colors';
 import { ACCESORIOS_TIENDA } from '../utils/accesorios';
+import { Usuario } from '../utils/types';
 
 // Al inicio del archivo, actualiza los tipos de props:
 interface MascotaScreenProps {
   setView: (view: string) => void;
   mascotaHook: any;
   puntosTotales: number;
-  mostrarToast: (text: string, tipo?: string) => void;
-  usuarioActual: any;
+  mostrarToast: (mensaje: string, tipo?: 'success' | 'error' | 'warning' | 'info', emoji?: string) => void;
+  usuarioActual: Usuario | null;
 }
 
-export default function MascotaScreen({ 
-  setView, 
+export default function MascotaScreen({
+  setView,
   mascotaHook,
   puntosTotales,
   mostrarToast,
@@ -33,14 +34,14 @@ export default function MascotaScreen({
 
   const [mostrarTienda, setMostrarTienda] = useState(false);
   const [mostrarRecompensa, setMostrarRecompensa] = useState(false);
-  
+
   // Animaciones
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(-300)).current;
-  
+
   // Animal según especie
   const getAnimalEmoji = () => {
-    switch(mascotaHook.mascota.especie) {
+    switch (mascotaHook.mascota.especie) {
       case 'gatito': return '🐱';
       case 'gato adolescente': return '🐈';
       case 'gato adulto': return '🐈‍⬛';
@@ -51,7 +52,7 @@ export default function MascotaScreen({
 
   // Estado emoji
   const getEstadoEmoji = () => {
-    switch(mascotaHook.mascota.estado) {
+    switch (mascotaHook.mascota.estado) {
       case 'feliz': return '😊';
       case 'hambriento': return '🍕';
       case 'cansado': return '😴';
@@ -106,22 +107,22 @@ export default function MascotaScreen({
     }
 
     const tiempoRestante = mascotaHook.getTiempoRestante(tipo, usuarioActual);
-    
+
     if (tiempoRestante > 0) {
       mostrarToast(`⏰ Espera ${tiempoRestante}h para ${tipo}`, 'warning');
       return;
     }
-    
+
     animarInteraccion(tipo);
     const resultado = await mascotaHook.interactuar(tipo, usuarioActual);
-    
+
     if (resultado.success) {
       mostrarToast(resultado.mensaje);
-      
+
       if (resultado.recompensa) {
         setMostrarRecompensa(true);
         mostrarToast(resultado.mensajeExtra, 'success');
-        
+
         // Resetear felicidad después de 5 segundos
         setTimeout(async () => {
           await mascotaHook.resetearFelicidad(usuarioActual);
@@ -141,7 +142,7 @@ export default function MascotaScreen({
     }
 
     const resultado = await mascotaHook.comprarAccesorio(accesorio, usuarioActual);
-    
+
     if (resultado.success) {
       mostrarToast(resultado.mensaje, 'success');
     } else {
@@ -160,7 +161,7 @@ export default function MascotaScreen({
     }
 
     const resultado = await mascotaHook.toggleAccesorio(accesorioId, equipar, usuarioActual);
-    
+
     if (resultado.success) {
       mostrarToast(resultado.mensaje, 'success');
     } else {
@@ -170,46 +171,46 @@ export default function MascotaScreen({
 
   return (
     <Container>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={true}
       >
         {/* Botón volver */}
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => setView("inicio")}
           style={styles.botonVolver}
         >
           <Text style={styles.botonVolverTexto}>⬅ Volver</Text>
         </TouchableOpacity>
-        
+
         {/* Título con indicador de usuario */}
         <Text style={styles.titulo}>
           {getAnimalEmoji()} {mascotaHook.mascota.nombre}
         </Text>
-        
+
         {usuarioActual && (
           <Text style={styles.usuarioTexto}>
             Jugando como: <Text style={styles.usuarioNombre}>{usuarioActual.nombre}</Text>
           </Text>
         )}
-        
+
         {/* ANIMAL ANIMADO */}
         <View style={styles.contenedorAnimal}>
           <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
             <Text style={styles.animalEmoji}>
               {getAnimalEmoji()}
             </Text>
-            
+
             {/* Accesorios equipados */}
             {mascotaHook.mascota.accesorios
-              .filter(acc => acc.equipado)
-              .map((acc, index) => (
-                <Text 
+              .filter((acc: any) => acc.equipado)
+              .map((acc: any, index: number) => (
+                <Text
                   key={acc.id}
                   style={[
                     styles.accesorioEmoji,
-                    { 
+                    {
                       position: 'absolute',
                       top: acc.posicion?.top || 0,
                       left: acc.posicion?.left || 0,
@@ -221,26 +222,26 @@ export default function MascotaScreen({
                 </Text>
               ))}
           </Animated.View>
-          
+
           {/* Estado */}
           <Text style={styles.estadoTexto}>
             {getEstadoEmoji()} {mascotaHook.mascota.estado}
           </Text>
         </View>
-        
+
         {/* INFORMACIÓN */}
         <View style={styles.infoContainer}>
           <Text style={styles.nivelTexto}>
             Nivel {mascotaHook.mascota.nivel} • {mascotaHook.mascota.especie}
           </Text>
-          
+
           {/* Barra de experiencia */}
           <View style={styles.barraContainer}>
             <Text style={styles.barraLabel}>Experiencia</Text>
             <View style={styles.barraFondo}>
-              <View 
+              <View
                 style={[
-                  styles.barraProgreso, 
+                  styles.barraProgreso,
                   { width: `${(mascotaHook.mascota.experiencia / mascotaHook.mascota.experienciaNecesaria) * 100}%` }
                 ]}
               />
@@ -249,14 +250,14 @@ export default function MascotaScreen({
               {mascotaHook.mascota.experiencia}/{mascotaHook.mascota.experienciaNecesaria} EXP
             </Text>
           </View>
-          
+
           {/* Barra de felicidad */}
           <View style={styles.barraContainer}>
             <Text style={styles.barraLabel}>Felicidad</Text>
             <View style={styles.barraFondo}>
-              <View 
+              <View
                 style={[
-                  styles.barraProgresoFelicidad, 
+                  styles.barraProgresoFelicidad,
                   { width: `${mascotaHook.mascota.felicidad}%` }
                 ]}
               />
@@ -268,12 +269,12 @@ export default function MascotaScreen({
               <Text style={styles.felicidadCompleta}>🎉 ¡Felicidad al máximo!</Text>
             )}
           </View>
-          
+
           <Text style={styles.puntosTexto}>
             Puntos disponibles: {puntosTotales}
           </Text>
         </View>
-        
+
         {/* INTERACCIONES */}
         <View style={styles.interaccionesContainer}>
           <Text style={styles.subtitulo}>💝 Interacciones</Text>
@@ -281,7 +282,7 @@ export default function MascotaScreen({
             {['acariciar', 'alimentar', 'jugar'].map((tipo) => {
               const tiempoRestante = usuarioActual ? mascotaHook.getTiempoRestante(tipo, usuarioActual) : 0;
               const puede = tiempoRestante === 0 && usuarioActual;
-              
+
               return (
                 <TouchableOpacity
                   key={tipo}
@@ -293,12 +294,12 @@ export default function MascotaScreen({
                   disabled={!puede}
                 >
                   <Text style={styles.botonInteraccionEmoji}>
-                    {tipo === 'acariciar' ? '✋' : 
-                     tipo === 'alimentar' ? '🍎' : '🎾'}
+                    {tipo === 'acariciar' ? '✋' :
+                      tipo === 'alimentar' ? '🍎' : '🎾'}
                   </Text>
                   <Text style={styles.botonInteraccionTexto}>
-                    {tipo === 'acariciar' ? 'Acariciar' : 
-                     tipo === 'alimentar' ? 'Alimentar' : 'Jugar'}
+                    {tipo === 'acariciar' ? 'Acariciar' :
+                      tipo === 'alimentar' ? 'Alimentar' : 'Jugar'}
                   </Text>
                   {!usuarioActual ? (
                     <Text style={styles.tiempoTexto}>
@@ -314,15 +315,15 @@ export default function MascotaScreen({
             })}
           </View>
         </View>
-        
+
         {/* ACCESORIOS EQUIPADOS */}
-        {mascotaHook.mascota.accesorios.filter(acc => acc.equipado).length > 0 && (
+        {mascotaHook.mascota.accesorios.filter((acc: any) => acc.equipado).length > 0 && (
           <View style={styles.accesoriosContainer}>
             <Text style={styles.subtitulo}>🎀 Accesorios equipados</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {mascotaHook.mascota.accesorios
-                .filter(acc => acc.equipado)
-                .map(acc => (
+                .filter((acc: any) => acc.equipado)
+                .map((acc: any) => (
                   <TouchableOpacity
                     key={acc.id}
                     onPress={() => handleToggleAccesorio(acc.id, false)}
@@ -341,7 +342,7 @@ export default function MascotaScreen({
             </ScrollView>
           </View>
         )}
-        
+
         {/* BOTÓN TIENDA */}
         <TouchableOpacity
           onPress={toggleTienda}
@@ -351,11 +352,11 @@ export default function MascotaScreen({
             🛍️ Abrir tienda
           </Text>
         </TouchableOpacity>
-        
+
         {/* Espacio para que la tienda modal no tape contenido */}
         <View style={{ height: 100 }} />
       </ScrollView>
-      
+
       {/* MODAL TIENDA (se desliza desde arriba) */}
       <Modal
         visible={mostrarTienda}
@@ -363,12 +364,12 @@ export default function MascotaScreen({
         animationType="none"
         onRequestClose={toggleTienda}
       >
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
           onPress={toggleTienda}
         >
-          <Animated.View 
+          <Animated.View
             style={[
               styles.tiendaModal,
               { transform: [{ translateY: slideAnim }] }
@@ -380,19 +381,19 @@ export default function MascotaScreen({
                 <Text style={styles.tiendaCerrar}>❌</Text>
               </TouchableOpacity>
             </View>
-            
-            <ScrollView 
+
+            <ScrollView
               style={styles.tiendaLista}
               showsVerticalScrollIndicator={true}
             >
               {ACCESORIOS_TIENDA.map(item => {
-                const yaComprado = mascotaHook.mascota.accesorios.some(a => a.id === item.id);
-                const equipado = yaComprado && mascotaHook.mascota.accesorios.find(a => a.id === item.id)?.equipado;
+                const yaComprado = mascotaHook.mascota.accesorios.some((a: any) => a.id === item.id);
+                const equipado = yaComprado && mascotaHook.mascota.accesorios.find((a: any) => a.id === item.id)?.equipado;
                 const puedeComprar = puntosTotales >= item.precio || item.exclusivo;
-                
+
                 return (
-                  <View 
-                    key={item.id} 
+                  <View
+                    key={item.id}
                     style={[
                       styles.itemTienda,
                       yaComprado && styles.itemComprado,
@@ -400,7 +401,7 @@ export default function MascotaScreen({
                     ]}
                   >
                     <Text style={styles.itemEmoji}>{item.emoji}</Text>
-                    
+
                     <View style={styles.itemInfo}>
                       <Text style={styles.itemNombre}>
                         {item.nombre}
@@ -411,7 +412,7 @@ export default function MascotaScreen({
                         {item.precio === 0 ? 'Gratis' : `${item.precio} puntos`}
                       </Text>
                     </View>
-                    
+
                     <View style={styles.itemAcciones}>
                       {yaComprado ? (
                         <TouchableOpacity
@@ -447,7 +448,7 @@ export default function MascotaScreen({
           </Animated.View>
         </TouchableOpacity>
       </Modal>
-      
+
       {/* MODAL RECOMPENSA */}
       <Modal
         visible={mostrarRecompensa}
@@ -457,7 +458,7 @@ export default function MascotaScreen({
         <View style={styles.recompensaOverlay}>
           <View style={styles.recompensaModal}>
             <Text style={styles.recompensaTitulo}>🎊 ¡RECOMPENSA DESBLOQUEADA!</Text>
-            
+
             {ultimaRecompensa && (
               <>
                 <Text style={styles.recompensaMensaje}>
@@ -469,7 +470,7 @@ export default function MascotaScreen({
                 <Text style={styles.recompensaDetalle}>
                   {ultimaRecompensa.descripcion}
                 </Text>
-                
+
                 {/* Accesorio exclusivo automático */}
                 {ultimaRecompensa.tipo === 'felicidad_completa' && (
                   <View style={styles.recompensaAccesorio}>
@@ -486,7 +487,7 @@ export default function MascotaScreen({
                 )}
               </>
             )}
-            
+
             <TouchableOpacity
               onPress={() => setMostrarRecompensa(false)}
               style={styles.botonCerrarRecompensa}

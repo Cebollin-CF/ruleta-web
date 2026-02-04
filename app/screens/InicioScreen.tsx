@@ -3,6 +3,20 @@ import { Text, View, TouchableOpacity, Image, ScrollView } from "react-native";
 import Container from "../components/Container";
 import colors from "../utils/colors";
 
+import { Razon, Usuario } from "../utils/types";
+
+interface InicioScreenProps {
+  setView: (view: string) => void;
+  coupleId: string | null;
+  avatarUrl: string | null;
+  fechaAniversario: string | null;
+  razonDelDia: Razon | null;
+  puntos: number;
+  usuarioActual: Usuario | null;
+  onCambiarUsuario: () => void;
+  mostrarToast: (mensaje: string, tipo?: 'success' | 'error' | 'warning' | 'info', emoji?: string) => void;
+}
+
 export default function InicioScreen({
   setView,
   coupleId,
@@ -10,9 +24,10 @@ export default function InicioScreen({
   fechaAniversario,
   razonDelDia,
   puntos = 0,
-  usuarioActual, // ✅ NUEVO
-  onCambiarUsuario, // ✅ NUEVO
-}) {
+  usuarioActual,
+  onCambiarUsuario,
+  mostrarToast,
+}: InicioScreenProps) {
 
   const [diasJuntos, setDiasJuntos] = useState(0);
   const [confeti, setConfeti] = useState(false);
@@ -50,7 +65,7 @@ export default function InicioScreen({
         </View>
       )}
 
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={{ paddingBottom: 30 }}
         showsVerticalScrollIndicator={false}
       >
@@ -106,14 +121,14 @@ export default function InicioScreen({
         </View>
 
         {/* RAZÓN DEL DÍA */}
-         {razonDelDia && (
+        {razonDelDia && (
           <View style={{
-              backgroundColor: colors.primary,
-              padding: 16,
-              borderRadius: 20,
-              marginBottom: 20,
-              borderWidth: 2,
-              borderColor: "#FFB3D1",
+            backgroundColor: colors.primary,
+            padding: 16,
+            borderRadius: 20,
+            marginBottom: 20,
+            borderWidth: 2,
+            borderColor: "#FFB3D1",
           }}>
             <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700", marginBottom: 6 }}>
               💝 Razón del día {razonDelDia.autor ? `(por ${razonDelDia.autor})` : ''}
@@ -448,7 +463,7 @@ export default function InicioScreen({
             {coupleId ?? "Sin vínculo"}
           </Text>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => setView("vinculo")}
             style={{
               marginTop: 8,
@@ -472,11 +487,11 @@ export default function InicioScreen({
           </TouchableOpacity>
 
           {/* PUNTOS DE LOGROS (extra) */}
-          <Text style={{ 
-            color: colors.warning, 
-            fontSize: 14, 
-            fontWeight: "700", 
-            marginTop: 12 
+          <Text style={{
+            color: colors.warning,
+            fontSize: 14,
+            fontWeight: "700",
+            marginTop: 12
           }}>
             Puntos acumulados: {puntos} 🏆
           </Text>

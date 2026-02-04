@@ -1,14 +1,13 @@
-// hooks/useLogros.js - VERSIÓN MEJORADA
 import { useState } from 'react';
 import { supabase } from '../../supabaseClient';
+import { Logro } from '../utils/types';
 
-export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueados = []) => {
-  const [puntos, setPuntos] = useState(initialPuntos);
-  const [logrosDesbloqueados, setLogrosDesbloqueados] = useState(initialLogrosDesbloqueados);
+export const useLogros = (coupleId: string | null, initialPuntos: number = 0, initialLogrosDesbloqueados: string[] = []) => {
+  const [puntos, setPuntos] = useState<number>(initialPuntos);
+  const [logrosDesbloqueados, setLogrosDesbloqueados] = useState<string[]>(initialLogrosDesbloqueados);
+  const [loaded, setLoaded] = useState<boolean>(false);
 
-  // 📋 LISTA AMPLIADA DE LOGROS (muchos más y repetibles)
-  const LOGROS_DISPONIBLES = [
-    // 🎯 PLANES (repetibles por cantidad)
+  const LOGROS_DISPONIBLES: Logro[] = [
     {
       id: 'primer_plan',
       titulo: 'Primer plan 🥇',
@@ -16,7 +15,7 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       puntos: 10,
       icono: '🥇',
       tipo: 'unico',
-      condicion: (datos) => datos.totalPlanesCompletados >= 1,
+      condicion: (datos: any) => datos.totalPlanesCompletados >= 1,
     },
     {
       id: 'planificador_novato',
@@ -26,7 +25,7 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       icono: '📝',
       tipo: 'repetible',
       niveles: [5, 10, 25, 50, 100],
-      condicion: (datos) => datos.totalPlanesCompletados,
+      condicion: (datos: any) => datos.totalPlanesCompletados,
     },
     {
       id: 'experto_planes',
@@ -36,10 +35,8 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       icono: '🎯',
       tipo: 'repetible',
       niveles: [25, 50, 100],
-      condicion: (datos) => datos.totalPlanesCompletados,
+      condicion: (datos: any) => datos.totalPlanesCompletados,
     },
-
-    // 📸 FOTOS (repetibles)
     {
       id: 'primer_foto',
       titulo: 'Primera foto 📸',
@@ -47,7 +44,7 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       puntos: 5,
       icono: '📸',
       tipo: 'unico',
-      condicion: (datos) => datos.totalFotos >= 1,
+      condicion: (datos: any) => datos.totalFotos >= 1,
     },
     {
       id: 'coleccionista_fotos',
@@ -57,10 +54,8 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       icono: '📷',
       tipo: 'repetible',
       niveles: [10, 25, 50, 100],
-      condicion: (datos) => datos.totalFotos,
+      condicion: (datos: any) => datos.totalFotos,
     },
-
-    // 💌 RAZONES (repetibles)
     {
       id: 'primer_razon',
       titulo: 'Primera razón 💌',
@@ -68,7 +63,7 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       puntos: 5,
       icono: '💌',
       tipo: 'unico',
-      condicion: (datos) => datos.totalRazones >= 1,
+      condicion: (datos: any) => datos.totalRazones >= 1,
     },
     {
       id: 'romantico_serial',
@@ -78,10 +73,8 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       icono: '💝',
       tipo: 'repetible',
       niveles: [20, 50, 100, 200],
-      condicion: (datos) => datos.totalRazones,
+      condicion: (datos: any) => datos.totalRazones,
     },
-
-    // 📅 FRECUENCIA (repetibles)
     {
       id: 'planificador_consistente',
       titulo: 'Planificador consistente 📅',
@@ -90,7 +83,7 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       icono: '📅',
       tipo: 'repetible',
       niveles: [7, 14, 30, 60],
-      condicion: (datos) => datos.diasConPlanes,
+      condicion: (datos: any) => datos.diasConPlanes,
     },
     {
       id: 'pareja_activa',
@@ -100,10 +93,8 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       icono: '🏃‍♂️💨',
       tipo: 'repetible',
       niveles: [3, 7, 14, 30],
-      condicion: (datos) => datos.maxDiasSeguidosConPlanes,
+      condicion: (datos: any) => datos.maxDiasSeguidosConPlanes,
     },
-
-    // ⏳ TIEMPO JUNTOS (aniversarios)
     {
       id: 'primer_mes',
       titulo: 'Primer mes 🌙',
@@ -111,7 +102,7 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       puntos: 20,
       icono: '🌙',
       tipo: 'unico',
-      condicion: (datos) => datos.diasJuntos >= 30,
+      condicion: (datos: any) => datos.diasJuntos >= 30,
     },
     {
       id: 'aniversario_100',
@@ -120,7 +111,7 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       puntos: 30,
       icono: '💯',
       tipo: 'unico',
-      condicion: (datos) => datos.diasJuntos >= 100,
+      condicion: (datos: any) => datos.diasJuntos >= 100,
     },
     {
       id: 'aniversario_365',
@@ -129,7 +120,7 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       puntos: 100,
       icono: '🎉',
       tipo: 'unico',
-      condicion: (datos) => datos.diasJuntos >= 365,
+      condicion: (datos: any) => datos.diasJuntos >= 365,
     },
     {
       id: 'aniversario_500',
@@ -138,10 +129,8 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       puntos: 150,
       icono: '✨',
       tipo: 'unico',
-      condicion: (datos) => datos.diasJuntos >= 500,
+      condicion: (datos: any) => datos.diasJuntos >= 500,
     },
-
-    // 🎯 DESAFÍOS
     {
       id: 'primer_desafio',
       titulo: 'Primer desafío 🎯',
@@ -149,7 +138,7 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       puntos: 15,
       icono: '🎯',
       tipo: 'unico',
-      condicion: (datos) => datos.desafiosCompletados >= 1,
+      condicion: (datos: any) => datos.desafiosCompletados >= 1,
     },
     {
       id: 'campeones_desafios',
@@ -159,10 +148,8 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       icono: '🏆',
       tipo: 'repetible',
       niveles: [10, 25, 50],
-      condicion: (datos) => datos.desafiosCompletados,
+      condicion: (datos: any) => datos.desafiosCompletados,
     },
-
-    // 😊 MOOD TRACKER
     {
       id: 'primer_mood',
       titulo: 'Primer estado de ánimo 😊',
@@ -170,7 +157,7 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       puntos: 5,
       icono: '😊',
       tipo: 'unico',
-      condicion: (datos) => datos.totalMoods >= 1,
+      condicion: (datos: any) => datos.totalMoods >= 1,
     },
     {
       id: 'emociones_registradas',
@@ -180,10 +167,8 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       icono: '📊',
       tipo: 'repetible',
       niveles: [30, 60, 100],
-      condicion: (datos) => datos.totalMoods,
+      condicion: (datos: any) => datos.totalMoods,
     },
-
-    // ⭐ ESPECIALES (combinaciones)
     {
       id: 'pareja_completa',
       titulo: 'Pareja completa ⭐',
@@ -191,10 +176,10 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       puntos: 50,
       icono: '⭐',
       tipo: 'unico',
-      condicion: (datos) => 
-        datos.totalPlanesCompletados >= 1 && 
-        datos.totalFotos >= 1 && 
-        datos.totalRazones >= 1 && 
+      condicion: (datos: any) =>
+        datos.totalPlanesCompletados >= 1 &&
+        datos.totalFotos >= 1 &&
+        datos.totalRazones >= 1 &&
         datos.desafiosCompletados >= 1,
     },
     {
@@ -205,22 +190,33 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
       icono: '🌟',
       tipo: 'repetible',
       niveles: [1, 3, 5, 10],
-      condicion: (datos) => datos.finesDeSemanaCompletos,
+      condicion: (datos: any) => datos.finesDeSemanaCompletos,
     },
   ];
 
-  // 💾 GUARDAR EN SUPABASE
-  const guardarEnSupabase = async (desbloqueados, totalPuntos) => {
+  const guardarEnSupabase = async (desbloqueados: string[], totalPuntos: number): Promise<boolean> => {
+    if (!coupleId) return false;
+
+    if (!loaded && desbloqueados.length === 0 && totalPuntos === 0 && puntos === 0) {
+      console.warn("⚠️ Guardado de logros ignorado: Pendiente de carga");
+      return false;
+    }
+
     try {
-      const { data: registro } = await supabase
+      const { data: registro, error: fetchError } = await supabase
         .from('app_state')
         .select('contenido')
         .eq('id', coupleId)
-        .single();
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error('❌ Error obteniendo datos para logros:', fetchError);
+        return false;
+      }
 
       const contenidoPrevio = registro?.contenido || {};
 
-      await supabase
+      const { error: updateError } = await supabase
         .from('app_state')
         .update({
           contenido: {
@@ -230,15 +226,22 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
           },
         })
         .eq('id', coupleId);
+
+      if (updateError) {
+        console.error('❌ Error actualizando logros en Supabase:', updateError);
+        return false;
+      }
+
+      console.log("✅ Logros persistidos correctamente");
+      return true;
     } catch (err) {
-      console.error('Error guardando logros:', err);
+      console.error('❌ Excepción guardando logros:', err);
+      return false;
     }
   };
 
-  // ✅ CALCULAR NIVEL ACTUAL PARA LOGROS REPETIBLES
-  const calcularNivelActual = (logro, valorActual) => {
+  const calcularNivelActual = (logro: Logro, valorActual: number): number => {
     if (logro.tipo !== 'repetible' || !logro.niveles) return 0;
-    
     let nivel = 0;
     for (let i = 0; i < logro.niveles.length; i++) {
       if (valorActual >= logro.niveles[i]) {
@@ -250,95 +253,47 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
     return nivel;
   };
 
-  // ✅ CALCULAR PROGRESO PARA EL SIGUIENTE NIVEL
-  const calcularProgreso = (logro, valorActual) => {
-    if (logro.tipo !== 'repetible' || !logro.niveles) return { actual: valorActual, siguiente: null, porcentaje: 100 };
-    
+  const calcularProgreso = (logro: Logro, valorActual: number) => {
+    if (logro.tipo !== 'repetible' || !logro.niveles) return { actual: valorActual, siguiente: null as number | null, porcentaje: 100 };
     const nivelActual = calcularNivelActual(logro, valorActual);
-    
-    if (nivelActual >= logro.niveles.length) {
-      return { 
-        actual: valorActual, 
-        siguiente: null, 
-        porcentaje: 100 
-      };
-    }
-    
+    if (nivelActual >= logro.niveles.length) return { actual: valorActual, siguiente: null as number | null, porcentaje: 100 };
     const objetivoActual = logro.niveles[nivelActual - 1] || 0;
     const objetivoSiguiente = logro.niveles[nivelActual];
-    
     const progreso = valorActual - objetivoActual;
     const totalParaSiguiente = objetivoSiguiente - objetivoActual;
     const porcentaje = Math.min((progreso / totalParaSiguiente) * 100, 100);
-    
-    return {
-      actual: valorActual,
-      siguiente: objetivoSiguiente,
-      porcentaje: Math.round(porcentaje)
-    };
-  };
-  
-  // useLogros.js - Añade después de actualizarLogros
-
-// ✅ FUNCIÓN PARA CARGAR LOGROS SIN NOTIFICACIONES
-  const cargarLogrosSilenciosamente = async (datosUsuario) => {
-    return await actualizarLogros(datosUsuario, false); // false = sin notificaciones
+    return { actual: valorActual, siguiente: objetivoSiguiente, porcentaje: Math.round(porcentaje) };
   };
 
-  // ✅ ACTUALIZAR LOGROS AUTOMÁTICAMENTE
-  // useLogros.js - Modifica la función actualizarLogros
+  const actualizarLogros = async (datosUsuario: any, mostrarNotificaciones: boolean = true) => {
+    if (!coupleId || !loaded) return null;
 
-  const actualizarLogros = async (datosUsuario, mostrarNotificaciones = true) => {
-    // ✅ Parámetro para controlar si mostrar notificaciones
-    if (!coupleId) return null;
-
-    const nuevosDesbloqueos = [];
+    const nuevosDesbloqueos: string[] = [];
     let nuevosPuntos = 0;
-    const notificaciones = [];
+    const notificaciones: any[] = [];
 
-    // Verificar cada logro
     LOGROS_DISPONIBLES.forEach(logro => {
       const valorActual = logro.condicion(datosUsuario);
-      
+
       if (logro.tipo === 'unico') {
         const logroId = `${logro.id}`;
-        const yaDesbloqueado = logrosDesbloqueados.includes(logroId);
-        
-        if (!yaDesbloqueado && valorActual) {
+        if (!logrosDesbloqueados.includes(logroId) && valorActual) {
           nuevosDesbloqueos.push(logroId);
           nuevosPuntos += logro.puntos;
-          
-          // ✅ SOLO agregar notificación si se permite
           if (mostrarNotificaciones) {
-            notificaciones.push({
-              titulo: logro.titulo,
-              puntos: logro.puntos,
-              icono: logro.icono
-            });
+            notificaciones.push({ titulo: logro.titulo, puntos: logro.puntos, icono: logro.icono });
           }
         }
-      } 
-      else if (logro.tipo === 'repetible' && logro.niveles) {
-        const nivelActual = calcularNivelActual(logro, valorActual);
-        
-        // Desbloquear cada nivel alcanzado
+      } else if (logro.tipo === 'repetible' && logro.niveles) {
+        const nivelActual = calcularNivelActual(logro, valorActual as number);
         for (let nivel = 1; nivel <= nivelActual; nivel++) {
           const logroId = `${logro.id}_nivel${nivel}`;
-          const yaDesbloqueado = logrosDesbloqueados.includes(logroId);
-          
-          if (!yaDesbloqueado) {
+          if (!logrosDesbloqueados.includes(logroId)) {
             nuevosDesbloqueos.push(logroId);
-            
             const puntosNivel = logro.puntos * nivel;
             nuevosPuntos += puntosNivel;
-            
-            // ✅ SOLO agregar notificación si se permite
             if (mostrarNotificaciones) {
-              notificaciones.push({
-                titulo: `${logro.titulo} (Nivel ${nivel})`,
-                puntos: puntosNivel,
-                icono: logro.icono
-              });
+              notificaciones.push({ titulo: `${logro.titulo} (Nivel ${nivel})`, puntos: puntosNivel, icono: logro.icono });
             }
           }
         }
@@ -348,122 +303,57 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
     if (nuevosDesbloqueos.length > 0) {
       const todosDesbloqueados = [...logrosDesbloqueados, ...nuevosDesbloqueos];
       const totalPuntos = puntos + nuevosPuntos;
-      
-      // Actualizar estado local
-      setLogrosDesbloqueados(todosDesbloqueados);
-      setPuntos(totalPuntos);
 
-      // Guardar en Supabase
-      await guardarEnSupabase(todosDesbloqueados, totalPuntos);
-      
-      return { 
-        nuevosDesbloqueos, 
-        puntosGanados: nuevosPuntos,
-        notificaciones: mostrarNotificaciones ? notificaciones : [] // ✅ Solo si se permite
-      };
+      const success = await guardarEnSupabase(todosDesbloqueados, totalPuntos);
+      if (success) {
+        setLogrosDesbloqueados(todosDesbloqueados);
+        setPuntos(totalPuntos);
+        return { nuevosDesbloqueos, puntosGanados: nuevosPuntos, notificaciones: mostrarNotificaciones ? notificaciones : [] };
+      }
     }
-
     return null;
   };
 
-  // Añade después de las otras funciones:
-  const gastarPuntos = async (cantidad) => {
-    if (puntos < cantidad) {
-      return { success: false, error: "Puntos insuficientes" };
-    }
+  const gastarPuntos = async (cantidad: number) => {
+    if (!loaded) return { success: false, error: "Hook no cargado" };
+    if (puntos < cantidad) return { success: false, error: "Puntos insuficientes" };
 
     const nuevosPuntos = puntos - cantidad;
-    setPuntos(nuevosPuntos);
+    const success = await guardarEnSupabase(logrosDesbloqueados, nuevosPuntos);
 
-    try {
-      const { data: registro } = await supabase
-        .from('app_state')
-        .select('contenido')
-        .eq('id', coupleId)
-        .single();
-
-      const contenidoPrevio = registro?.contenido || {};
-
-      await supabase
-        .from('app_state')
-        .update({
-          contenido: {
-            ...contenidoPrevio,
-            puntos: nuevosPuntos,
-          },
-        })
-        .eq('id', coupleId);
-
+    if (success) {
+      setPuntos(nuevosPuntos);
       return { success: true, nuevosPuntos };
-    } catch (err) {
-      console.error('Error gastando puntos:', err);
-      return { success: false, error: err.message };
     }
+    return { success: false, error: "Error de conexión con Supabase" };
   };
 
-  // ✅ OBTENER INFORMACIÓN DE UN LOGRO ESPECÍFICO
-  const getLogroInfo = (logroId) => {
-    // Extraer ID base y nivel si es repetible
-    let idBase = logroId;
-    let nivel = 1;
-    
+  const getLogroInfo = (logroId: string) => {
+    let idBase = logroId, nivel = 1;
     if (logroId.includes('_nivel')) {
       const parts = logroId.split('_nivel');
       idBase = parts[0];
       nivel = parseInt(parts[1]) || 1;
     }
-    
     const logro = LOGROS_DISPONIBLES.find(l => l.id === idBase);
-    if (!logro) return null;
-    
-    return {
-      ...logro,
-      nivelActual: nivel,
-      idCompleto: logroId
-    };
+    return logro ? { ...logro, nivelActual: nivel, idCompleto: logroId } : null;
   };
 
-  // ✅ OBTENER TODOS LOS LOGROS CON SU ESTADO
-  const getTodosLogrosConEstado = (datosUsuario) => {
+  const getTodosLogrosConEstado = (datosUsuario: any) => {
     return LOGROS_DISPONIBLES.map(logro => {
       const valorActual = logro.condicion(datosUsuario);
-      
       if (logro.tipo === 'unico') {
         const desbloqueado = logrosDesbloqueados.includes(logro.id);
-        return {
-          ...logro,
-          desbloqueado,
-          valorActual,
-          progreso: desbloqueado ? 100 : (valorActual ? 100 : 0),
-          nivelActual: desbloqueado ? 1 : 0,
-          nivelMaximo: 1
-        };
-      }
-      else if (logro.tipo === 'repetible') {
-        const nivelActual = calcularNivelActual(logro, valorActual);
-        const progresoInfo = calcularProgreso(logro, valorActual);
-        
-        // Verificar qué niveles están desbloqueados
-        const nivelesDesbloqueados = [];
+        return { ...logro, desbloqueado, valorActual, progreso: desbloqueado ? 100 : (valorActual ? 100 : 0), nivelActual: desbloqueado ? 1 : 0, nivelMaximo: 1 };
+      } else if (logro.tipo === 'repetible') {
+        const nivelActual = calcularNivelActual(logro, valorActual as number);
+        const progresoInfo = calcularProgreso(logro, valorActual as number);
+        const nivelesDesbloqueados: number[] = [];
         for (let i = 1; i <= nivelActual; i++) {
-          if (logrosDesbloqueados.includes(`${logro.id}_nivel${i}`)) {
-            nivelesDesbloqueados.push(i);
-          }
+          if (logrosDesbloqueados.includes(`${logro.id}_nivel${i}`)) nivelesDesbloqueados.push(i);
         }
-        
-        return {
-          ...logro,
-          desbloqueado: nivelActual > 0,
-          valorActual,
-          progreso: progresoInfo.porcentaje,
-          nivelActual,
-          nivelMaximo: logro.niveles?.length || 0,
-          objetivoActual: logro.niveles?.[nivelActual - 1] || null,
-          objetivSiguiente: progresoInfo.siguiente,
-          nivelesDesbloqueados
-        };
+        return { ...logro, desbloqueado: nivelActual > 0, valorActual, progreso: progresoInfo.porcentaje, nivelActual, nivelMaximo: logro.niveles?.length || 0, objetivoActual: logro.niveles?.[nivelActual - 1] || null, objetivSiguiente: progresoInfo.siguiente, nivelesDesbloqueados };
       }
-      
       return { ...logro, desbloqueado: false, valorActual, progreso: 0 };
     });
   };
@@ -472,9 +362,11 @@ export const useLogros = (coupleId, initialPuntos = 0, initialLogrosDesbloqueado
     logros: LOGROS_DISPONIBLES,
     puntos,
     logrosDesbloqueados,
+    loaded,
     actualizarLogros,
     setLogrosDesbloqueados,
     setPuntos,
+    setLoaded,
     getLogroInfo,
     getTodosLogrosConEstado,
     calcularProgreso,

@@ -1,24 +1,16 @@
 import React, { useState, useCallback } from "react";
-import { 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  View, 
-  StyleSheet, 
+import {
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  StyleSheet,
   Alert,
-  ScrollView 
+  ScrollView
 } from "react-native";
 import Container from "../components/Container";
 import colors from "../utils/colors";
-
-interface Nota {
-  id: string;
-  texto: string;
-  categoria: string;
-  fecha: string;
-  usuario?: string;
-  usuarioId?: string;
-}
+import { Nota, Usuario } from "../utils/types";
 
 interface NotasScreenProps {
   setView: (view: string) => void;
@@ -28,7 +20,8 @@ interface NotasScreenProps {
   guardarNota: (texto: string, categoria: string) => Promise<boolean>;
   eliminarNota: (notaId: string) => Promise<boolean>;
   editarNota: (notaId: string, texto: string, categoria: string) => Promise<boolean>;
-  usuarioActual: any;
+  usuarioActual: Usuario | null;
+  mostrarToast: (mensaje: string, tipo?: 'success' | 'error' | 'warning' | 'info', emoji?: string) => void;
 }
 
 export default React.memo(function NotasScreen({
@@ -40,6 +33,7 @@ export default React.memo(function NotasScreen({
   eliminarNota,
   editarNota,
   usuarioActual,
+  mostrarToast,
 }: NotasScreenProps) {
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("💭 General");
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -53,16 +47,12 @@ export default React.memo(function NotasScreen({
 
   const guardarNotaConCategoria = useCallback(async () => {
     if (!notaTexto.trim()) {
-      Alert.alert("Campo vacío", "Escribe una nota primero");
+      mostrarToast("Escribe una nota primero", "warning", "⚠️");
       return;
     }
 
     if (!usuarioActual) {
-      Alert.alert(
-        "Usuario no seleccionado",
-        "Por favor, selecciona un usuario primero para agregar una nota",
-        [{ text: "OK" }]
-      );
+      mostrarToast("Primero selecciona un usuario", "error", "👤");
       return;
     }
 
@@ -72,24 +62,22 @@ export default React.memo(function NotasScreen({
         setEditandoId(null);
         setNotaTexto("");
         setCategoriaSeleccionada("💭 General");
+        mostrarToast("Nota actualizada", "success", "📝");
       }
     } else {
       const success = await guardarNota(notaTexto, categoriaSeleccionada);
       if (success) {
         setNotaTexto("");
         setCategoriaSeleccionada("💭 General");
+        mostrarToast("Nota guardada", "success", "✨");
       }
     }
-  }, [notaTexto, editandoId, categoriaSeleccionada, usuarioActual, guardarNota, editarNota]);
+  }, [notaTexto, editandoId, categoriaSeleccionada, usuarioActual, guardarNota, editarNota, mostrarToast, setNotaTexto]);
 
   const handleEliminarNota = useCallback(async (notaId: string, nota: Nota) => {
     // Verificar si el usuario actual es el autor de la nota
     if (usuarioActual && nota.usuarioId !== usuarioActual.id) {
-      Alert.alert(
-        "No autorizado",
-        "Solo el autor puede eliminar esta nota",
-        [{ text: "Entendido" }]
-      );
+      mostrarToast("Solo el autor puede eliminar esta nota", "error", "🚫");
       return;
     }
 
@@ -102,27 +90,26 @@ export default React.memo(function NotasScreen({
           text: "Eliminar",
           style: "destructive",
           onPress: async () => {
-            await eliminarNota(notaId);
+            const success = await eliminarNota(notaId);
+            if (success) {
+              mostrarToast("Nota eliminada", "success", "🗑️");
+            }
           },
         },
       ]
     );
-  }, [usuarioActual, eliminarNota]);
+  }, [usuarioActual, eliminarNota, mostrarToast]);
 
   const iniciarEdicion = useCallback((nota: Nota) => {
     if (usuarioActual && nota.usuarioId !== usuarioActual.id) {
-      Alert.alert(
-        "No autorizado",
-        "Solo el autor puede editar esta nota",
-        [{ text: "Entendido" }]
-      );
+      mostrarToast("Solo el autor puede editar esta nota", "error", "🚫");
       return;
     }
-    
+
     setEditandoId(nota.id);
     setNotaTexto(nota.texto);
     setCategoriaSeleccionada(nota.categoria || "💭 General");
-  }, [usuarioActual, setNotaTexto]);
+  }, [usuarioActual, setNotaTexto, mostrarToast]);
 
   const cancelarEdicion = useCallback(() => {
     setEditandoId(null);
@@ -132,7 +119,7 @@ export default React.memo(function NotasScreen({
 
   const renderNota = useCallback((n: Nota, index: number) => {
     const cat = categorias.find((c) => n.categoria?.includes(c.nombre));
-    
+
     return (
       <View
         key={n.id}
@@ -145,7 +132,7 @@ export default React.memo(function NotasScreen({
           <Text style={styles.notaCategoria}>
             {n.categoria || "💭 General"}
           </Text>
-          
+
           {usuarioActual && n.usuarioId === usuarioActual.id && (
             <Text style={styles.notaPropia}>
               (Tú)
@@ -161,7 +148,7 @@ export default React.memo(function NotasScreen({
           <Text style={styles.notaFecha}>
             {new Date(n.fecha).toLocaleDateString()}
           </Text>
-          
+
           {n.usuario && (
             <Text style={styles.notaUsuario}>
               Por: {n.usuario}
@@ -224,8 +211,8 @@ export default React.memo(function NotasScreen({
                   categoriaSeleccionada === `${cat.emoji} ${cat.nombre}`
                     ? cat.color
                     : "#4A3258",
-                borderColor: categoriaSeleccionada === `${cat.emoji} ${cat.nombre}` 
-                  ? "#FFFFFF" 
+                borderColor: categoriaSeleccionada === `${cat.emoji} ${cat.nombre}`
+                  ? "#FFFFFF"
                   : "#6B5577",
               }
             ]}
@@ -273,7 +260,7 @@ export default React.memo(function NotasScreen({
                 <Text style={styles.botonCancelarTexto}>❌ Cancelar</Text>
               </TouchableOpacity>
             )}
-            
+
             <TouchableOpacity
               onPress={guardarNotaConCategoria}
               style={styles.botonGuardar}
@@ -296,7 +283,7 @@ export default React.memo(function NotasScreen({
           <View style={styles.sinNotasContainer}>
             <Text style={styles.sinNotasEmoji}>📝</Text>
             <Text style={styles.sinNotas}>
-              {usuarioActual 
+              {usuarioActual
                 ? `${usuarioActual.nombre}, aún no has escrito notas`
                 : "Aún no hay notas. ¡Escribe la primera!"}
             </Text>

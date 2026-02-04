@@ -1,18 +1,19 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
+import { MoodUsuario, Usuario } from '../utils/types';
 
-export const useMoodTracker = (coupleId, usuarioActual) => {
-  const [moodHoy, setMoodHoy] = useState({});
-  const [historialMoods, setHistorialMoods] = useState([]);
-  const [moodsPorUsuario, setMoodsPorUsuario] = useState({});
+export const useMoodTracker = (coupleId: string | null, usuarioActual: Usuario | null) => {
+  const [moodHoy, setMoodHoy] = useState<Record<string, any>>({});
+  const [historialMoods, setHistorialMoods] = useState<any[]>([]);
+  const [moodsPorUsuario, setMoodsPorUsuario] = useState<Record<string, any[]>>({});
+  const [loaded, setLoaded] = useState<boolean>(false);
 
-  // Cargar moods desde la nueva tabla por usuario
   useEffect(() => {
     if (!coupleId) return;
 
     const cargarMoodsUsuarios = async () => {
       try {
-        // Cargar de la tabla moods_usuario
+        setLoaded(false);
         const { data: moodsData, error } = await supabase
           .from('moods_usuario')
           .select(`
@@ -26,9 +27,8 @@ export const useMoodTracker = (coupleId, usuarioActual) => {
         if (error) throw error;
 
         if (moodsData) {
-          // Organizar por usuario
-          const porUsuario = {};
-          const historialUnificado = [];
+          const porUsuario: Record<string, any[]> = {};
+          const historialUnificado: any[] = [];
 
           moodsData.forEach(mood => {
             const usuarioId = mood.usuario_id;
@@ -58,38 +58,37 @@ export const useMoodTracker = (coupleId, usuarioActual) => {
           setMoodsPorUsuario(porUsuario);
           setHistorialMoods(historialUnificado);
 
-          // Calcular mood de hoy por usuario
           const hoy = new Date().toISOString().split("T")[0];
-          const moodsHoy = {};
-          
+          const moodsHoyObj: Record<string, any> = {};
+
           Object.keys(porUsuario).forEach(usuarioId => {
             const moodHoyUsuario = porUsuario[usuarioId].find(m => m.fecha === hoy);
             if (moodHoyUsuario) {
-              moodsHoy[usuarioId] = moodHoyUsuario;
+              moodsHoyObj[usuarioId] = moodHoyUsuario;
             }
           });
-          
-          setMoodHoy(moodsHoy);
+
+          setMoodHoy(moodsHoyObj);
         }
+        setLoaded(true);
       } catch (error) {
         console.error('Error cargando moods por usuario:', error);
+        setLoaded(true);
       }
     };
 
     cargarMoodsUsuarios();
   }, [coupleId]);
 
-  // Registrar mood para usuario específico
-  const registrarMood = async (mood) => {
-    if (!coupleId || !usuarioActual) {
-      console.error('No hay usuario o coupleId para registrar mood');
-      return;
+  const registrarMood = async (mood: { emoji: string; nombre: string }) => {
+    if (!coupleId || !usuarioActual || !loaded) {
+      console.error('No hay usuario, coupleId o hook no cargado');
+      return { success: false };
     }
 
     try {
       const hoy = new Date().toISOString().split("T")[0];
-      
-      // Primero eliminar mood de hoy si ya existe
+
       const { error: deleteError } = await supabase
         .from('moods_usuario')
         .delete()
@@ -100,7 +99,6 @@ export const useMoodTracker = (coupleId, usuarioActual) => {
         console.error('Error eliminando mood anterior:', deleteError);
       }
 
-      // Insertar nuevo mood
       const { data: nuevoMood, error: insertError } = await supabase
         .from('moods_usuario')
         .insert({
@@ -114,35 +112,32 @@ export const useMoodTracker = (coupleId, usuarioActual) => {
           *,
           usuario:usuarios(*)
         `)
-        .single();
+        .maybeSingle();
 
       if (insertError) throw insertError;
 
-      // Actualizar estado local
       const nuevoRegistro = {
-        id: nuevoMood.id,
-        emoji: nuevoMood.emoji,
-        nombre: nuevoMood.nombre,
-        fecha: nuevoMood.fecha,
-        creado_en: nuevoMood.creado_en,
+        id: (nuevoMood as any).id,
+        emoji: (nuevoMood as any).emoji,
+        nombre: (nuevoMood as any).nombre,
+        fecha: (nuevoMood as any).fecha,
+        creado_en: (nuevoMood as any).creado_en,
         usuarioId: usuarioActual.id,
         usuarioNombre: usuarioActual.nombre
       };
 
-      // Actualizar historial
-      const historialSinHoy = historialMoods.filter(m => 
+      const historialSinHoy = historialMoods.filter(m =>
         !(m.fecha === hoy && m.usuarioId === usuarioActual.id)
       );
       setHistorialMoods([nuevoRegistro, ...historialSinHoy]);
 
-      // Actualizar mood hoy
       setMoodHoy(prev => ({
         ...prev,
         [usuarioActual.id]: {
-          id: nuevoMood.id,
-          emoji: nuevoMood.emoji,
-          nombre: nuevoMood.nombre,
-          fecha: nuevoMood.fecha,
+          id: (nuevoMood as any).id,
+          emoji: (nuevoMood as any).emoji,
+          nombre: (nuevoMood as any).nombre,
+          fecha: (nuevoMood as any).fecha,
           usuario: usuarioActual
         }
       }));
@@ -154,8 +149,8 @@ export const useMoodTracker = (coupleId, usuarioActual) => {
     }
   };
 
-  // Eliminar mood específico
-  const eliminarMood = async (moodId, usuarioId) => {
+  const eliminarMood = async (moodId: string, usuarioId: string) => {
+    if (!loaded) return { success: false };
     try {
       const { error } = await supabase
         .from('moods_usuario')
@@ -164,14 +159,12 @@ export const useMoodTracker = (coupleId, usuarioActual) => {
 
       if (error) throw error;
 
-      // Actualizar estado local
       const nuevoHistorial = historialMoods.filter(m => m.id !== moodId);
       setHistorialMoods(nuevoHistorial);
 
-      // Actualizar mood hoy si corresponde
       const hoy = new Date().toISOString().split("T")[0];
       const moodEliminado = historialMoods.find(m => m.id === moodId);
-      
+
       if (moodEliminado && moodEliminado.fecha === hoy) {
         setMoodHoy(prev => {
           const nuevo = { ...prev };
@@ -187,37 +180,31 @@ export const useMoodTracker = (coupleId, usuarioActual) => {
     }
   };
 
-  // Cambiar mood de hoy (eliminar)
   const cambiarMoodHoy = async () => {
-    if (!usuarioActual) return;
-
+    if (!usuarioActual || !loaded) return;
     const hoy = new Date().toISOString().split("T")[0];
     const moodHoyUsuario = moodHoy[usuarioActual.id];
-
     if (moodHoyUsuario) {
       return await eliminarMood(moodHoyUsuario.id, usuarioActual.id);
     }
-
     return { success: true };
   };
 
-  // Obtener historial de usuario específico
-  const getHistorialUsuario = (usuarioId) => {
+  const getHistorialUsuario = (usuarioId: string) => {
     return historialMoods.filter(m => m.usuarioId === usuarioId);
   };
 
-  // Obtener mood de hoy de usuario específico
-  const getMoodHoyUsuario = (usuarioId) => {
+  const getMoodHoyUsuario = (usuarioId: string) => {
     return moodHoy[usuarioId] || null;
   };
 
-  return { 
-    moodHoy, 
-    setMoodHoy, 
-    historialMoods, 
-    setHistorialMoods, 
-    registrarMood, 
-    eliminarMood, 
+  return {
+    moodHoy,
+    historialMoods,
+    loaded,
+    setLoaded,
+    registrarMood,
+    eliminarMood,
     cambiarMoodHoy,
     getHistorialUsuario,
     getMoodHoyUsuario,

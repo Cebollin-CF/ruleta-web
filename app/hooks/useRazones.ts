@@ -1,21 +1,27 @@
 import { useState } from 'react';
 import { supabase } from '../../supabaseClient';
+import { Razon, Usuario } from '../utils/types';
 
-export const useRazones = (coupleId, usuarioActual) => {
-  const [razones, setRazones] = useState([]);
-  const [razonDelDia, setRazonDelDia] = useState(null);
+export const useRazones = (coupleId: string | null, usuarioActual: Usuario | null) => {
+  const [razones, setRazones] = useState<Razon[]>([]);
+  const [razonDelDia, setRazonDelDia] = useState<Razon | null>(null);
+  const [loaded, setLoaded] = useState<boolean>(false);
 
-  // Función para actualizar contenido completo en Supabase
-  const actualizarContenidoCompleto = async (nuevasRazones, nuevaRazonDelDia = null) => {
+  const actualizarContenidoCompleto = async (nuevasRazones: Razon[], nuevaRazonDelDia: Razon | null = null): Promise<boolean> => {
     if (!coupleId) return false;
 
+    // 🛡️ SEGURIDAD: Evitar sobreescribir con datos vacíos si no se ha cargado
+    if (!loaded && nuevasRazones.length === 0 && razones.length === 0) {
+      console.warn("⚠️ Guardado de razones ignorado: Pendiente de carga");
+      return false;
+    }
+
     try {
-      // Obtener el contenido actual para no sobreescribir otros datos (planes, fotos, etc.)
       const { data: registro, error: fetchError } = await supabase
         .from('app_state')
         .select('contenido')
         .eq('id', coupleId)
-        .single();
+        .maybeSingle();
 
       if (fetchError) {
         console.error('❌ Error obteniendo contenido actual:', fetchError);
@@ -48,11 +54,10 @@ export const useRazones = (coupleId, usuarioActual) => {
     }
   };
 
-  // Agregar razón con usuario
-  const agregarRazon = async (texto) => {
-    if (!coupleId || !texto.trim() || !usuarioActual) return false;
+  const agregarRazon = async (texto: string) => {
+    if (!coupleId || !texto.trim() || !usuarioActual || !loaded) return false;
 
-    const nuevaRazon = {
+    const nuevaRazon: Razon = {
       id: Date.now().toString(),
       texto: texto.trim(),
       autor: usuarioActual.nombre,
@@ -62,110 +67,79 @@ export const useRazones = (coupleId, usuarioActual) => {
     };
 
     const nuevasRazones = [nuevaRazon, ...razones];
-    setRazones(nuevasRazones);
+    const result = await actualizarContenidoCompleto(nuevasRazones, razonDelDia || nuevaRazon);
 
-    // Actualizar razón del día si no hay
-    let nuevaRazonDelDia = razonDelDia;
-    if (!razonDelDia) {
-      setRazonDelDia(nuevaRazon);
-      nuevaRazonDelDia = nuevaRazon;
+    if (result) {
+      setRazones(nuevasRazones);
+      if (!razonDelDia) setRazonDelDia(nuevaRazon);
+      return { success: true, razon: nuevaRazon };
     }
-
-    const success = await actualizarContenidoCompleto(nuevasRazones, nuevaRazonDelDia);
-    return { success, razon: nuevaRazon };
+    return { success: false };
   };
 
-  // Eliminar razón (solo el autor puede eliminar)
-  const eliminarRazon = async (razonId) => {
+  const eliminarRazon = async (razonId: string) => {
+    if (!loaded) return { success: false };
     const razonAEliminar = razones.find(r => r.id === razonId);
-    
-    // Verificar que el usuario actual es el autor (solo si la razón tiene autorId)
+
     if (usuarioActual && razonAEliminar?.autorId && razonAEliminar.autorId !== usuarioActual.id) {
-      return { 
-        success: false, 
-        error: 'Solo el autor puede eliminar esta razón' 
-      };
+      return { success: false, error: 'Solo el autor puede eliminar esta razón' };
     }
 
     const nuevasRazones = razones.filter(r => r.id !== razonId);
-    
-    setRazones(nuevasRazones);
-
-    // Si la razón eliminada era la razón del día, actualizarla
     let nuevaRazonDelDia = razonDelDia;
     if (razonDelDia?.id === razonId) {
-      if (nuevasRazones.length > 0) {
-        const randomIndex = Math.floor(Math.random() * nuevasRazones.length);
-        setRazonDelDia(nuevasRazones[randomIndex]);
-        nuevaRazonDelDia = nuevasRazones[randomIndex];
-      } else {
-        setRazonDelDia(null);
-        nuevaRazonDelDia = null;
-      }
+      nuevaRazonDelDia = nuevasRazones.length > 0 ? nuevasRazones[Math.floor(Math.random() * nuevasRazones.length)] : null;
     }
 
     const success = await actualizarContenidoCompleto(nuevasRazones, nuevaRazonDelDia);
+    if (success) {
+      setRazones(nuevasRazones);
+      setRazonDelDia(nuevaRazonDelDia);
+    }
     return { success };
   };
 
-  // Editar razón (solo el autor puede editar)
-  const editarRazon = async (razonId, nuevoTexto) => {
+  const editarRazon = async (razonId: string, nuevoTexto: string) => {
+    if (!loaded) return { success: false };
     const razonAEditar = razones.find(r => r.id === razonId);
-    
-    // Verificar que el usuario actual es el autor (solo si la razón tiene autorId)
+
     if (usuarioActual && razonAEditar?.autorId && razonAEditar.autorId !== usuarioActual.id) {
-      return { 
-        success: false, 
-        error: 'Solo el autor puede editar esta razón' 
-      };
+      return { success: false, error: 'Solo el autor puede editar esta razón' };
     }
 
-    const nuevasRazones = razones.map(r =>
-      r.id === razonId ? { ...r, texto: nuevoTexto } : r
-    );
-
-    setRazones(nuevasRazones);
-
-    // Actualizar razón del día si la razón editada era la del día
+    const nuevasRazones = razones.map(r => r.id === razonId ? { ...r, texto: nuevoTexto } : r);
     let nuevaRazonDelDia = razonDelDia;
     if (razonDelDia?.id === razonId) {
-      setRazonDelDia({ ...razonDelDia, texto: nuevoTexto });
       nuevaRazonDelDia = { ...razonDelDia, texto: nuevoTexto };
     }
 
     const success = await actualizarContenidoCompleto(nuevasRazones, nuevaRazonDelDia);
+    if (success) {
+      setRazones(nuevasRazones);
+      if (razonDelDia?.id === razonId) setRazonDelDia(nuevaRazonDelDia);
+    }
     return { success };
   };
 
-  // Seleccionar razón del día aleatoria
   const seleccionarRazonDelDiaAleatoria = () => {
-    if (razones.length === 0) return null;
-    
-    const randomIndex = Math.floor(Math.random() * razones.length);
-    const randomRazon = razones[randomIndex];
+    if (razones.length === 0 || !loaded) return null;
+    const randomRazon = razones[Math.floor(Math.random() * razones.length)];
     setRazonDelDia(randomRazon);
-    
-    // También guardar en Supabase
     actualizarContenidoCompleto(razones, randomRazon);
-    
     return randomRazon;
   };
 
-  // Obtener razones por usuario
-  const getRazonesPorUsuario = (usuarioId) => {
+  const getRazonesPorUsuario = (usuarioId: string) => {
     return razones.filter(r => r.autorId === usuarioId);
   };
 
   return {
-    // Estados
     razones,
     razonDelDia,
-    
-    // Setters
+    loaded,
     setRazones,
     setRazonDelDia,
-    
-    // Funciones
+    setLoaded,
     agregarRazon,
     eliminarRazon,
     editarRazon,

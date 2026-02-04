@@ -2,17 +2,20 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { View, StyleSheet } from "react-native";
 import FloatingHeartsBackground from "./FloatingHeartsBackground";
-import colors from "../utils/colors";
+import { useTheme } from "../context/ThemeContext"; // ✅ Usar Hook
 
 export default function Container({ children }) {
+  const { theme } = useTheme(); // ✅ Obtener tema actual
+  const { colors } = theme;
+
   return (
     <LinearGradient
-      colors={[colors.bgTop, colors.bgBottom]}
+      colors={[colors.bgTop, colors.bgBottom]} // ✅ Colores dinámicos
       style={styles.gradient}
     >
       {/* Corazones en el fondo */}
       <FloatingHeartsBackground />
-      
+
       {/* Contenido principal */}
       <View style={styles.content}>
         {children}

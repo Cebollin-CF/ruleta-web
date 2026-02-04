@@ -18,7 +18,7 @@ interface VinculoScreenProps {
   crearPareja: () => void;
   conectarPareja: (code: string) => Promise<{ success: boolean; message?: string } | undefined>;
   manejarScan: (result: { data: string }) => void;
-  mostrarToast: (message: string, type?: "success" | "error" | "info") => void;
+  mostrarToast: (mensaje: string, tipo?: 'success' | 'error' | 'warning' | 'info', emoji?: string) => void;
 }
 
 export default function VinculoScreen({
